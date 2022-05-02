@@ -26,8 +26,7 @@ MagNeuron::MagNeuron()
 	maxtime = maxtimeRate1s;
 	maxtimeLong = 35000;
 
-	OxySecretion.setsize(maxtimeRate1s);
-	//OxyPlasma.setsize(maxtimeRate1s);
+	Secretion.setsize(maxtimeRate1s);
 
 	store.setsize(maxtime); //, mainwin->diagbox->textbox, "b");
 	storeLong.setsize(maxtimeLong); //, mainwin->diagbox->textbox, "storeLong"); 
@@ -58,8 +57,7 @@ MagNeuron::~MagNeuron()
 
 void MagNeuron::StoreClear()
 {
-	OxySecretion.reset();
-	//OxyPlasma.reset();
+	Secretion.reset();
 	store.reset();
 	storeLong.reset();
 	CaLong.reset();
@@ -69,7 +67,6 @@ void MagNeuron::StoreClear()
 
 
 MagPop::MagPop()
-//	: neurons(oxynetmod->neurons) 
 {
 	maxtime = 200000;
 	maxtimeRate1s = maxtime;
@@ -188,7 +185,6 @@ void MagPop::PopSum()
 	//for(step=0; step<runtime; step++)
 	//	numspikes += srate[step];
 }
-
 
 
 MagNeuroDat::MagNeuroDat()

@@ -22,11 +22,11 @@ MagNetMod::MagNetMod(MagNetModel *oxynetmod)
 	mod = oxynetmod;
 	spikebox = mod->spikebox;
 	synthbox = mod->synthbox;
-	netbox = mod->oxynetbox;
+	netbox = mod->netbox;
 	magpop = mod->magpop;
 
 	//neurons = mod->neurons;
-	oxyneurodata = mod->oxyneurodata;
+	neurodata = mod->neurodata;
 	initflag = false;
 
 	//Protocol Parameters
@@ -55,9 +55,9 @@ void *MagNetMod::Entry()
 
 	// Generate non-independent PSP counts
 	if((*netflags)["inputgen"]) {
-		mod->oxynetbox->SetStatus("InputGen...\n");
+		mod->netbox->SetStatus("InputGen...\n");
 		InputGen();                                   
-		mod->oxynetbox->SetStatus("InputGen...OK\n");
+		mod->netbox->SetStatus("InputGen...OK\n");
 	}
 
 	if((*netflags)["realtime"]) {}
@@ -72,8 +72,6 @@ void *MagNetMod::Entry()
 
 
 	// Hetero Pop Analysis    22/2/13
-
-	
 
 	double synvar, neurate;
 	int syndist[1000];
@@ -94,16 +92,6 @@ void *MagNetMod::Entry()
 		ratedist[(int)(neurate*50)/10]++;   // 0.2 spikes/s bins
 	} 
 
-	//vasomod->datahistx[dataindex][0] = 0;
-	//vasomod->datahist[dataindex][0] = 0;
-	//double totsec = 0;
-	//for(i=0; i<numsteps; i++) totsec = totsec + vasopop->secseries[i];
-	//for(i=0; i<numsteps; i++) {
-	//	vasomod->datahistx[dataindex][i+1] = protosteps[i];
-	//	vasomod->datahist[dataindex][i+1] =  (vasopop->secseries[i] / totsec) * 100;
-	//}
-
-
 	for(i=0; i<1000; i++) {
 		mod->datahistx[0][i] = i * 0.05;
 		mod->datahist[0][i] = syndist[i];
@@ -111,8 +99,6 @@ void *MagNetMod::Entry()
 		mod->datahistx[1][i] = i * 0.2;
 		mod->datahist[1][i] = ratedist[i];
 	}
-
-	
 
 	// Clean Up
 	delete diagmute;
@@ -134,7 +120,7 @@ void *MagNetMod::Entry()
 	delete[] rampinput;
 	delete[] rampafter;
 
-	mod->oxynetbox->SetStatus("");
+	mod->netbox->SetStatus("");
     
     wxQueueEvent(mod, new wxThreadEvent(EVT_MODTHREAD_COMPLETED));
     //mod->AddPendingEvent(endrunevent);
@@ -208,45 +194,6 @@ void MagNetMod::RunRange()
 	}
 
 	mod->graphbase->GetGraph(text.Format("rangedata%d", rangeindex))->xcount = count;   
-
-	/*for(i=0; i<count; i++) {
-		mod->gridbox->textgrid->SetCell(i, 0, text.Format("%.0f", mod->rangeref[i]));
-		mod->gridbox->textgrid->SetCell(i, rangeindex+1, text.Format("%.2f", mod->rangedata[rangeindex][i]));
-		mod->gridbox->textgrid->SetCell(i, rangeindex+2, text.Format("%.2f", mod->rangedata[rangeindex+1][i]));
-	}*/
-
-
-
-	/*if(secproto == 1) {
-		vasomod->datahistx[0] = 0;
-		vasomod->datahist[0] = 0;
-		double totsec = 0;
-		for(i=0; i<numsteps; i++) totsec = totsec + vasopop->secseries[i];
-		for(i=0; i<numsteps; i++) {
-			vasomod->datahistx[i+1] = protosteps[i];
-			vasomod->datahist[i+1] =  (vasopop->secseries[i] / totsec) * 100;
-		}
-	}*/
-
-	
-	/*runcount = 0;
-	for(inprate = rangestart; inprate<=rangestop; inprate+=rangestep) {
-		protobox->currentrange->SetLabel(text.Format("%d", inprate));
-		vmhinput[0] = inprate;
-		spikegen(0, vmhneurons, active);
-		if(vmhL1) netbox->netcalcvmn(mod->netdat1, 1);
-		if(vmhL2) netbox->netcalcvmn(mod->netdat2, 2);
-		if(vmhL3) netbox->netcalcvmn(mod->netdat3, 3);
-		netbox->NeuroData();
-		mod->rangeref[runcount] = inprate;
-		if(vmhL1) mod->rangedata[0][runcount] = mod->netdat1->freq;
-		if(vmhL2) mod->rangedata[1][runcount] = mod->netdat2->freq;
-		if(vmhL3) mod->rangedata[2][runcount] = mod->netdat3->freq;
-		if(vmhL1) netbox->freqL1->SetLabel(text.Format("%.2f", mod->netdat1->freq));
-		if(vmhL2) netbox->freqL2->SetLabel(text.Format("%.2f", mod->netdat2->freq));
-		if(vmhL3) netbox->freqL3->SetLabel(text.Format("%.2f", mod->netdat3->freq));
-		runcount++;
-	*/
 }
 
 
@@ -256,9 +203,9 @@ void MagNetMod::Initialise()
 	int maxtime = 10000;
 	wxString text, tag[10];
 
-	netparams = mod->oxynetbox->GetParams();
+	netparams = mod->netbox->GetParams();
 		
-	netflags = mod->oxynetbox->modflags;
+	netflags = mod->netbox->modflags;
 
 	runtime = int((*netparams)["runtime"]);
 	numneurons = int((*netparams)["numneurons"]);
@@ -568,7 +515,7 @@ int MagNetMod::InputGen()
 
 	if(diag) fprintf(tofp, "\n");
 
-	mod->oxynetbox->SetStatus("InputGen...connect OK...\n");
+	mod->netbox->SetStatus("InputGen...connect OK...\n");
 
 	// Input generation
 
@@ -580,7 +527,7 @@ int MagNetMod::InputGen()
 		epspt = -log(1 - mrand01()) / erate;   // initial epspt value, could just be 0
 		ipspt = -log(1 - mrand01()) / irate;
 
-		mod->oxynetbox->SetStatus(text.Format("InputGen...connect OK...cell %d\n", inpcell));
+		mod->netbox->SetStatus(text.Format("InputGen...connect OK...cell %d\n", inpcell));
 
 		// input array pointer copies for fast access
 		for(c=0; c<Econnect[inpcell]; c++) dendinputE[c] = neurons[Ecellconnect[inpcell][c]].dendinputE;
@@ -698,8 +645,8 @@ void MagNetMod::RunNet()
 	mod->DiagWrite(text.Format("\nRunNet %d neurons\n\n", numneurons));
 
 	netsecX = 0;
-	tOxyPlasma = 0;
-	tOxyEVF = 0;
+	tPlasma = 0;
+	tEVF = 0;
 
 	// Initialise buffered secretion summation store
 	for(i=0; i<maxtime*1000; i++) mod->magpop->secX[i] = 0;
@@ -707,13 +654,13 @@ void MagNetMod::RunNet()
 	mod->magpop->secXtime = -1;
 
 	// Generate and run neuron threads
-	// Every thread is an instance of the class OxyNeuroMod that runs the single neuron code 
+	// Every thread is an instance of the class MagNeuroMod that runs the single neuron code 
 	// Every thread needs to be created, run, and deleted after it has finished
 
 	// Create Threads
 	for(i=0; i<numneurons; i++) {
 		//mod->diagbox->Write(text.Format("Init cell %d\n", i));
-		neurothread[i] = new MagNeuroMod(i, &neurons[i], this);  // Is here where it changes the index???  Yes, index set from 'i' in first OxyNeuroMod() parameter
+		neurothread[i] = new MagNeuroMod(i, &neurons[i], this); 
 		neurothread[i]->Create();
 	}
 	//if(osmomode) osmothread = new OxyOsmoMod(this);

@@ -5,11 +5,11 @@
 *
 *	Classes:
 *		- "MagNeuron: public NeuroDat"    --->   Single neuron parameters and variables (spiking ones from class NeuroData, the rest included here)
-*		- "MagNetDat"    --->   Just getting parameters for the Network (see oxynetdat.cpp)
-*		- Boxes for the network and the single neuron starting parameters  (see oxynetpanels.cpp)
-*		- "MagNeuroMod : public wxThread"   --->  Thread for working with a single neuron  (see oxyneuromod.cpp)
-*		- "MagNetMod : public ModThread"   --->  class to work with threats, in this case with the single neuron threads defined by OxyNeuroMod  (see oxynetmod.cpp)
-*		- "MagNetModel : public Model"   --->  to run the network threads and coordinate the graphs, boxes and data asociated  (see oxynetmodel.cpp)
+*		- "MagNetDat"    --->   Just getting parameters for the Network (see magnetdat.cpp)
+*		- Boxes for the network and the single neuron starting parameters  (see magnetpanels.cpp)
+*		- "MagNeuroMod : public wxThread"   --->  Thread for working with a single neuron  (see magneuromod.cpp)
+*		- "MagNetMod : public ModThread"   --->  class to work with threats, in this case with the single neuron threads defined by MagNeuroMod  (see magnetmod.cpp)
+*		- "MagNetModel : public Model"   --->  to run the network threads and coordinate the graphs, boxes and data asociated  (see magnetmodel.cpp)
 *		
 */
 
@@ -58,7 +58,7 @@ public:
 	double PlasmaVol, EVFVol;
 	double halflifeOxyClear, halflifeOxyDiff;
 
-	MagPlasmaMod(MagNetMod *oxynetmod);
+	MagPlasmaMod(MagNetMod *magnetmod);
 	virtual void *Entry();
 
 	void plasmamodel();
@@ -150,7 +150,7 @@ public:
 
 
 	double PlasmaVol, EVFVol;
-	double halflifeOxyClear, halflifeOxyDiff;
+	double halflifeClear, halflifeDiff;
 	double BasalNaConc;
 	int plasma_hstep;
 
@@ -192,12 +192,12 @@ class MagNetMod : public ModThread
 public:
 	std::vector<MagNeuron> &neurons;
 	MagNetModel *mod;
-	MagNetDat *oxynetdata;
+	MagNetDat *netdata;
 	MagNeuroMod *neurothread[1000];  // for storaging data up to 1000 single neurones
 	MagSpikeBox *spikebox;
 	MagSynthBox *synthbox;
 	MagNetBox *netbox;
-	MagNeuroDat *oxyneurodata;
+	MagNeuroDat *neurodata;
 	MagPlasmaMod *plasmathread;
 	//OxyOsmoMod *osmothread;
 	//OxySigMod *sigthread;
@@ -215,7 +215,7 @@ public:
 
 	double netsecX;
 	double netsecRate1s, netplasmaRate1s;
-	double tOxyPlasma, tOxyEVF;
+	double tPlasma, tEVF;
 	double OsmoPress;  // not currently used, see OsmoStore
 
 	datdouble OsmoStore;   // osmotic pressure buffer for feeding neuron threads
@@ -252,17 +252,17 @@ public:
 class MagNetModel : public NeuroMod
 {
 public:
-	MagNetBox *oxynetbox;
+	MagNetBox *netbox;
 	MagSpikeBox *spikebox;
-	OxySecBox *secbox;
-	OxyNeuroDataBox *neurodatabox;
-	OxySignalBox *signalbox;
-	OxyDendBox *dendbox;
+	MagSecBox *secbox;
+	MagNeuroDataBox *neurodatabox;
+	MagSignalBox *signalbox;
+	MagDendBox *dendbox;
 	MagNetProtoBox *protobox;
 	MagSynthBox *synthbox;
 
-	MagNetDat *oxynetdata;
-	MagNeuroDat *oxyneurodata;
+	MagNetDat *netdata;
+	MagNeuroDat *neurodata;
 
 	ParamBox *dispbox;
 

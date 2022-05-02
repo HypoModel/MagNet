@@ -9,12 +9,12 @@ class MagNetModel;
 
 
 
-class OxySignalBox: public ParamBox
+class MagSignalBox: public ParamBox
 {
 public:
 	MagNetModel *mod;
 
-	OxySignalBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
+	MagSignalBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
 	void OnRun(wxCommandEvent& event);
 };
 
@@ -75,27 +75,27 @@ public:
 };
 
 
-class OxyDendBox: public ParamBox
+class MagDendBox: public ParamBox
 {
 public:
 	MagNetModel *mod;
 	wxCheckBox *synccheck;
 
-	OxyDendBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
+	MagDendBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
 };
 
 
-class OxySecBox: public ParamBox
+class MagSecBox: public ParamBox
 {
 public:
 	MagNetModel *mod;
 	wxCheckBox *synccheck;
 
-	OxySecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
+	MagSecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
 };
 
 
-class OxyNeuroDataBox: public ParamBox
+class MagNeuroDataBox: public ParamBox
 {
 public:
 	MagNetModel *mod;
@@ -113,7 +113,7 @@ public:
 	void OnNext(wxSpinEvent& event);
 	void OnPrev(wxSpinEvent& event);
 	void OnEnter(wxCommandEvent& event);
-	OxyNeuroDataBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
+	MagNeuroDataBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
 };
 
 

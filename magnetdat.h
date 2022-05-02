@@ -31,8 +31,8 @@ public:
 	unsigned char *dendinputI;
 
 	// secretion and diffusion variable recording arrays
-	datdouble OxySecretion;
-	datdouble OxyPlasma;
+	datdouble Secretion;
+	datdouble Plasma;
 	datdouble secLong;    //  1 minute timescale
 	datdouble secHour;    //  10 minute or 1 hour timescale
 
@@ -61,7 +61,6 @@ public:
 // MagPop() does post run analysis and population data summation
 // SpikeDat and datdouble pointers contain data for currently selected neuron
 //
-
 class MagPop{
 public:
 	int runtime;
@@ -148,6 +147,8 @@ public:
 };
 
 
+// 'MagNeuroDat' data storage class with recording model variables during a run
+//
 class MagNeuroDat{
 public:
 	int rectime;
@@ -178,7 +179,8 @@ public:
 	MagNeuroDat();
 };
 
-
+// 'MagNetDat' network/population class containing network parameters and neuron array link
+//
 class MagNetDat{
 public:
 	int runtime;

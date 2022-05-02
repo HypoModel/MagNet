@@ -29,7 +29,6 @@ MagNetBox::MagNetBox(MagNetModel *magnetmodel, MainFrame *main, const wxString& 
 	SetModFlag(ID_analysis, "netanalysis", "Net Analysis", 0); 
 
 
-
 	// Parameter controls
 	//
 	// AddCon(tag string, display string, initial value, click increment, decimal places)
@@ -447,7 +446,7 @@ void MagSpikeBox::VasoPanel()
 }*/
 
 
-OxyDendBox::OxyDendBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagDendBox::MagDendBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(mod, title, pos, size, "OXYDEND")
 {
 	int labelwidth = 60;
@@ -471,11 +470,11 @@ OxyDendBox::OxyDendBox(MagNetModel *mod, const wxString& title, const wxPoint& p
 	mainbox->AddStretchSpacer(10);
 	panel->Layout();
 
-	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(OxyDendBox::OnClose));
+	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(MagDendBox::OnClose));
 }
 
 
-OxySecBox::OxySecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagSecBox::MagSecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(mod, title, pos, size, "OXYSEC")
 {
 	int labelwidth = 60;
@@ -549,7 +548,7 @@ OxySecBox::OxySecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos
 }
 
 // Box for showing the analysis of a particular neuron of the Network
-OxyNeuroDataBox::OxyNeuroDataBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagNeuroDataBox::MagNeuroDataBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(model, title, pos, size, "OXYNEURODATA")
 {
 	int datwidth, labelwidth;
@@ -608,16 +607,14 @@ OxyNeuroDataBox::OxyNeuroDataBox(MagNetModel *model, const wxString& title, cons
 
 	panel->Layout();
 
-	Connect(wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(OxyNeuroDataBox::OnEnter));
-	//Connect(wxEVT_SCROLL_LINEUP, wxSpinEventHandler(OxyNeuroDataBox::OnNext));
-	//Connect(wxEVT_SCROLL_LINEDOWN, wxSpinEventHandler(OxyNeuroDataBox::OnPrev));
-	Connect(wxEVT_SPIN_UP, wxSpinEventHandler(OxyNeuroDataBox::OnNext));
-	Connect(wxEVT_SPIN_DOWN, wxSpinEventHandler(OxyNeuroDataBox::OnPrev));
-	Connect(wxEVT_SPIN, wxSpinEventHandler(OxyNeuroDataBox::OnSpin));
+	Connect(wxEVT_COMMAND_TEXT_ENTER, wxCommandEventHandler(MagNeuroDataBox::OnEnter));
+	Connect(wxEVT_SPIN_UP, wxSpinEventHandler(MagNeuroDataBox::OnNext));
+	Connect(wxEVT_SPIN_DOWN, wxSpinEventHandler(MagNeuroDataBox::OnPrev));
+	Connect(wxEVT_SPIN, wxSpinEventHandler(MagNeuroDataBox::OnSpin));
 }
 
 // Jorge comment - returns calculations for each neuron of the network when we want to see their graphs
-void OxyNeuroDataBox::NeuroData()
+void MagNeuroDataBox::NeuroData()
 {
 
 	// To show results, numerical and graphically, we need to:
@@ -630,7 +627,7 @@ void OxyNeuroDataBox::NeuroData()
 	if(mod->burstbox) mod->burstbox->ModDataScan();
 
 	// Assigning to the graphbase vector with name "OxSecretion" the data from the position neurodex of the variable OxSecretion of the class array neurons
-	(*mod->graphbase)["OxySecretion"]->gdatadv = &(mod->modneurons[neurodex].OxySecretion);  // gdatadv: graph data double vector. 
+	(*mod->graphbase)["Secretion"]->gdatadv = &(mod->modneurons[neurodex].Secretion);  // gdatadv: graph data double vector. 
 	//(*mod->graphbase)["OxyPlasma"]->gdatadv = &(mod->neurons[neurodex].OxyPlasma); 
 
 	mod->magpop->storeLong = mod->modneurons[neurodex].storeLong;
@@ -648,7 +645,7 @@ void OxyNeuroDataBox::NeuroData()
 }
 
 
-void OxyNeuroDataBox::PanelData(NeuroDat *data)
+void MagNeuroDataBox::PanelData(NeuroDat *data)
 {
 	wxString snum;
 
@@ -665,7 +662,7 @@ void OxyNeuroDataBox::PanelData(NeuroDat *data)
 }
 
 
-void OxyNeuroDataBox::OnPrev(wxSpinEvent& WXUNUSED(event))
+void MagNeuroDataBox::OnPrev(wxSpinEvent& WXUNUSED(event))
 {
 	// wxSpinButton Diagnostic
 	//diagbox->Write(text.Format("spin down neurodex %d  val %d  min %d  max %d\n", neurodex, datspin->GetValue(), datspin->GetMin(), datspin->GetMax()));
@@ -679,7 +676,7 @@ void OxyNeuroDataBox::OnPrev(wxSpinEvent& WXUNUSED(event))
 }
 
 
-void OxyNeuroDataBox::OnNext(wxSpinEvent& WXUNUSED(event))
+void MagNeuroDataBox::OnNext(wxSpinEvent& WXUNUSED(event))
 {
 	// wxSpinButton Diagnostic
 	//diagbox->Write(text.Format("spin up neurodex %d  val %d  min %d  max %d\n", neurodex, datspin->GetValue(), datspin->GetMin(), datspin->GetMax()));
@@ -693,7 +690,7 @@ void OxyNeuroDataBox::OnNext(wxSpinEvent& WXUNUSED(event))
 }
 
 
-void OxyNeuroDataBox::OnEnter(wxCommandEvent& event)
+void MagNeuroDataBox::OnEnter(wxCommandEvent& event)
 {
 	int id = event.GetId();
 	long data;
@@ -999,12 +996,12 @@ void MagNetProtoBox::OnRun(wxCommandEvent& event)
 	if(event.GetId() == ID_RampCurve) (*mod->modeflags)["prototype"] = rampcurve;
 
 	//mod->netbox->SetNeuroCount();
-	mod->oxynetbox->countmark = 0;
+	mod->netbox->countmark = 0;
 	mod->RunModel();
 } 
 
 // Control box for testing signal processing
-OxySignalBox::OxySignalBox(MagNetModel *vmnmodel, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagSignalBox::MagSignalBox(MagNetModel *vmnmodel, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(vmnmodel, title, pos, size, "Signal")
 {
 	column = 0;
@@ -1059,7 +1056,7 @@ OxySignalBox::OxySignalBox(MagNetModel *vmnmodel, const wxString& title, const w
 }
 
 
-void OxySignalBox::OnRun(wxCommandEvent& event)
+void MagSignalBox::OnRun(wxCommandEvent& event)
 {
 	//mod->SigSim(mod->netdat1);
 	//mod->SigSim(mod->netdat2);
@@ -1072,17 +1069,3 @@ void OxySignalBox::OnRun(wxCommandEvent& event)
 	mod->RunModel();
 	mainwin->scalebox->GraphUpdate();
 }
-
-
-
-/*void VasoBox::OnRun(wxCommandEvent& WXUNUSED(event))
-{
-countmark = 0;
-//(*modflags)["cellgen"] = 0;
-(*(mod->modeflags))["single"] = 1;
-(*(mod->modeflags))["proto"] = 0;
-(*(mod->modeflags))["prototype"] = 0;
-//(*(mod->modeflags))[""] = 1;
-GetParams();
-mod->RunModel();
-}*/

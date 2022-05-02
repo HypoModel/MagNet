@@ -102,7 +102,7 @@ void MagPlasmaMod::plasmamodel()
 		
 		// Diffusion Rate: will be positive or negative in one or another way depending on the oxytocin concentration in each compartment.
 		if(!diff_flag) DiffRate = 0;
-		else DiffRate = (netmod->tOxyPlasma / PlasmaVol - netmod->tOxyEVF / EVFVol) * (PlasmaVol + EVFVol) / 2; // the pressure is total amount, not from the amount/ml	
+		else DiffRate = (netmod->tPlasma / PlasmaVol - netmod->tEVF / EVFVol) * (PlasmaVol + EVFVol) / 2; // the pressure is total amount, not from the amount/ml	
 
 		// If [OxPlasma] > [OxEVF] -> {DiffRate > 0} -> tOxyPlasma will give plasma to tOxyEVF
 		// If [OxPlasma] < [OxEVF] -> {DiffRate < 0} -> tOxyPlasma will receive plasma from tOxyEVF
@@ -113,14 +113,14 @@ void MagPlasmaMod::plasmamodel()
 			oxynetmod->diagmute->Unlock();
 		}*/
 
-		netmod->tOxyPlasma = netmod->tOxyPlasma + plasma_hstep * (magpop->secX[step] - (netmod->tOxyPlasma * tauOxyClear + DiffRate * tauOxyDiff));  // Oxytocin Plasma Concentration
-		netmod->tOxyEVF = netmod->tOxyEVF + plasma_hstep * (DiffRate * tauOxyDiff);
+		netmod->tPlasma = netmod->tPlasma + plasma_hstep * (magpop->secX[step] - (netmod->tPlasma * tauOxyClear + DiffRate * tauOxyDiff));  // Oxytocin Plasma Concentration
+		netmod->tEVF = netmod->tEVF + plasma_hstep * (DiffRate * tauOxyDiff);
 
 		//netsecRate1s =+ netmod->netsecX;
 		netsecRate1s += magpop->secX[step];
 		netsecRate4s += magpop->secX[step];
-		netplasmaRate1s += netmod->tOxyPlasma;	
-		plasmaRate60s += netmod->tOxyPlasma;
+		netplasmaRate1s += netmod->tPlasma;	
+		plasmaRate60s += netmod->tPlasma;
 		netsecRate60s += magpop->secX[step];         
 		netsecRate1h += magpop->secX[step];                  // long timescale secretion rate for fitting to Robinson 1989 
 

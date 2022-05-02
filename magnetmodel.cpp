@@ -34,9 +34,9 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
 	currmodneuron->BurstInit();
 	neuroindex = 0;
 
-	oxyneurodata = new MagNeuroDat();
+	neurodata = new MagNeuroDat();
 
-	oxynetdata = new MagNetDat();
+	netdata = new MagNetDat();
 	magpop = new MagPop();
 	netdat = new SpikeDat();
 	netneuron = new SpikeDat();
@@ -65,21 +65,21 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
 	celltypes = 1;    // reserve for possible future multiple cell types as in VMNNet
 
 	// Initialise neuro select data
-	magpop->OxySecretion = &modneurons[0].OxySecretion;
-	magpop->OxyPlasma = &modneurons[0].OxyPlasma;
+	magpop->OxySecretion = &modneurons[0].Secretion;
+	magpop->OxyPlasma = &modneurons[0].Plasma;
 	
 	gridbox = new MagNetGridBox(this, "Data Grid", wxPoint(0, 0), wxSize(320, 500), 100, 20);
 	neurobox = new NeuroBox(this, "Spike Data", wxPoint(0, 0), wxSize(320, 500));
-	secbox = new OxySecBox(this, "Secretion and Diffusion", wxPoint(0, 0), wxSize(320, 500));
-	dendbox = new OxyDendBox(this, "Dendritic", wxPoint(0, 0), wxSize(320, 500));
-	neurodatabox = new OxyNeuroDataBox(this, "Model Neuron Data", wxPoint(0, 0), wxSize(320, 500));
-	signalbox = new OxySignalBox(this, "Signal Box", wxPoint(0, 300), wxSize(400, 500));
+	secbox = new MagSecBox(this, "Secretion and Diffusion", wxPoint(0, 0), wxSize(320, 500));
+	dendbox = new MagDendBox(this, "Dendritic", wxPoint(0, 0), wxSize(320, 500));
+	neurodatabox = new MagNeuroDataBox(this, "Model Neuron Data", wxPoint(0, 0), wxSize(320, 500));
+	signalbox = new MagSignalBox(this, "Signal Box", wxPoint(0, 300), wxSize(400, 500));
 	protobox = new MagNetProtoBox(this, "Protocol", wxPoint(0, 0), wxSize(320, 500));
 	synthbox = new MagSynthBox(this, "Synthesis", wxPoint(0, 0), wxSize(320, 500));
 
 	// Panel control boxes, must come last to link panel buttons
 	spikebox = new MagSpikeBox(this, "Spiking", wxPoint(0, 0), wxSize(320, 500));
-	oxynetbox = new MagNetBox(this, mainwin, "Hypo Net Model", wxPoint(0, 0), wxSize(320, 500));
+	netbox = new MagNetBox(this, mainwin, "Hypo Net Model", wxPoint(0, 0), wxSize(320, 500));
 
 	// link mod owned boxes
 	mainwin->neurobox = neurobox;
@@ -93,7 +93,7 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
 	plotbox = mainwin->plotbox;
 
 	//oxynetbox->canclose = false;
-	dispbox = oxynetbox;
+	dispbox = netbox;
 
 	// Cell data NeuroDat store vector and view SpikeDat
 	int numview = 2;
@@ -129,7 +129,7 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
 	//(*toolflags)["spikebox"] = 1;		// Select universal model tools
 	//mainwin->ToolLoad(this);				// Load universal model tools
 
-	modtools.AddBox(oxynetbox, true);
+	modtools.AddBox(netbox, true);
 	modtools.AddBox(spikebox, true);
 	modtools.AddBox(secbox, true);
 	modtools.AddBox(dendbox, true);
@@ -142,7 +142,7 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
     #ifdef HYPOSOUND
     modtools.AddBox(soundbox, true);
     #endif
-	modbox = oxynetbox;
+	modbox = netbox;
 
 	//ModLoad();
 	/*
@@ -151,7 +151,7 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
 		modtools.box[i]->Show(modtools.box[i]->visible);
 	}*/
 	
-	oxynetbox->ParamLoad("default");
+	netbox->ParamLoad("default");
 	graphload = false;
 
 	gsync = 0;
@@ -245,7 +245,7 @@ int MagNetModel::SoundLink(SoundBox *soundbox)
 #ifdef HYPOSOUND
 	if(currmodneuron->spikecount) {
 		soundbox->SetSpikeData(currmodneuron);
-		soundbox->SetWaveData(&oxyneurodata->Ca);
+		soundbox->SetWaveData(&neurodata->Ca);
 	}
 	else if(viewcell[0].spikecount) {
 		soundbox->SetSpikeData(&viewcell[0]);	
@@ -404,7 +404,7 @@ void MagNetModel::RunModel()
 {
 	if(mainwin->diagnostic) mainwin->SetStatusText("MagNet Model Run");
 
-	ParamStore *netparams = oxynetbox->GetParams();
+	ParamStore *netparams = netbox->GetParams();
 	numneurons = (*netparams)["numneurons"];
 
 	// Create more neuron objects if requested number is larger than current max
@@ -416,9 +416,9 @@ void MagNetModel::RunModel()
 	unsigned long modseed = (*netparams)["modseed"];
 
 	// Set random seed
-	if((*oxynetbox->modflags)["seedgen"]) {
+	if((*netbox->modflags)["seedgen"]) {
 		modseed = (unsigned)(time(NULL));
-		oxynetbox->paramset.GetCon("modseed")->SetValue(modseed);
+		netbox->paramset.GetCon("modseed")->SetValue(modseed);
 	}
 	init_mrand(modseed);
 
@@ -446,7 +446,7 @@ void MagNetModel::NeuroGen()
 	//mainwin->diagbox->Write("NeuroGen call\n");
 	DiagWrite("NeuroGen call\n");
 
-	ParamStore *netparams = oxynetbox->GetParams();
+	ParamStore *netparams = netbox->GetParams();
 	ParamStore *neuroparams = spikebox->GetParams();
 
 	//ParamSet *vasoset = vasomod->vasobox->paramset;
@@ -461,7 +461,7 @@ void MagNetModel::NeuroGen()
 		dendbox->GetParams(modneurons[i].dendparams);
 		synthbox->GetParams(modneurons[i].synthparams);
 
-		if((*oxynetbox->modflags)["netinit"] || !modneurons[i].initflag) {
+		if((*netbox->modflags)["netinit"] || !modneurons[i].initflag) {
 			// Neuron heterogeneity
 			paramsdgen = gaussian(0, 1);
 			lognormvar = exp(0 + (*netparams)["synvarsd"] * paramsdgen);
@@ -474,8 +474,8 @@ void MagNetModel::NeuroGen()
 		(*modneurons[i].spikeparams)["synvar"] = modneurons[i].synvar;
 		(*modneurons[i].synthparams)["mRNAinit"] = modneurons[i].mRNAinit;
 		(*modneurons[i].secparams)["Rinit"] = modneurons[i].storeinit;
-		modneurons[i].netinit = (*oxynetbox->modflags)["netinit"];
-		modneurons[i].storereset = (*oxynetbox->modflags)["storereset"];
+		modneurons[i].netinit = (*netbox->modflags)["netinit"];
+		modneurons[i].storereset = (*netbox->modflags)["storereset"];
 		modneurons[i].initflag = true;
 	}
 }
@@ -483,13 +483,13 @@ void MagNetModel::NeuroGen()
 
 MagNetModel::~MagNetModel()
 {
-	delete oxynetdata;
+	delete netdata;
 	//delete[] neurons;
 	delete currmodneuron;
 	delete netdat;
 	delete netneuron;
 	delete magpop;
-	delete oxyneurodata;
+	delete neurodata;
 }
 
 
@@ -509,11 +509,11 @@ void MagNetModel::GraphData()
 	graphbase->Add(GraphDat(&magpop->secLong, 0, 50000, 0, 300, "Secretion 60s", 5, 60, lightblue), "seclong");
 	graphbase->Add(GraphDat(&magpop->secHour, 0, 50000, 0, 30, "Secretion 10min", 5, 600, lightblue), "sechour");
 
-	graphbase->Add(GraphDat(&oxyneurodata->secP, 0, 500, 0, 5000, "Secretion P", 5, 1, lightred, 1000/datsample), "oxysecp");
-	graphbase->Add(GraphDat(&oxyneurodata->secR, 0, 500, 0, 20000, "Secretion R", 5, 1, lightred, 1000/datsample), "oxysecr");
-	graphbase->Add(GraphDat(&oxyneurodata->secX, 0, 500, 0, 30, "Secretion X", 5, 1, lightred, 1000/datsample), "oxysecx");
+	graphbase->Add(GraphDat(&neurodata->secP, 0, 500, 0, 5000, "Secretion P", 5, 1, lightred, 1000/datsample), "oxysecp");
+	graphbase->Add(GraphDat(&neurodata->secR, 0, 500, 0, 20000, "Secretion R", 5, 1, lightred, 1000/datsample), "oxysecr");
+	graphbase->Add(GraphDat(&neurodata->secX, 0, 500, 0, 30, "Secretion X", 5, 1, lightred, 1000/datsample), "oxysecx");
 
-	graphbase->Add(GraphDat(&oxyneurodata->Ca, 0, 500, 0, 500, "Neuron Ca", 5, 1, lightgreen, 1000/datsample), "neuroCa");
+	graphbase->Add(GraphDat(&neurodata->Ca, 0, 500, 0, 500, "Neuron Ca", 5, 1, lightgreen, 1000/datsample), "neuroCa");
 
 	graphbase->Add(GraphDat(&magpop->OxySecretionNet, 0, 50000, 0, 300, "Net Oxy Secretion", 4, 1, lightgreen), "OxySecretionNet");
 	//graphbase->Add(GraphDat(&magpop->secX, 0, 50000, 0, 300, "Net Oxy Secretion", 5, 1, lightgreen), "OxySecretionNet");
@@ -538,11 +538,11 @@ void MagNetModel::GraphData()
 	graphbase->Add(GraphDat(&magpop->inputLong, 0, 50000, 0, 10000, "Input Long", 5, 60, lightgreen), "inputlong");
 	graphbase->Add(GraphDat(&magpop->transLong, 0, 50000, 0, 10000, "Trans Long", 5, 60, lightred), "translong");
 
-	graphbase->Add(GraphDat(&oxyneurodata->pspsig, 0, 50000, 0, 1000, "PSP Signal", 5, 1, lightblue), "pspsig");
-	graphbase->Add(GraphDat(&oxyneurodata->V, 0, 50000, 0, 1000, "Rec V", 5, 1, lightgreen), "recV");
-	graphbase->Add(GraphDat(&oxyneurodata->syn, 0, 50000, 0, 1000, "Rec Syn", 5, 1, lightblue), "recsyn");
-	graphbase->Add(GraphDat(&oxyneurodata->psp, 0, 50000, 0, 1000, "Rec PSP", 5, 1, lightred), "recpsp");
-	graphbase->Add(GraphDat(&oxyneurodata->rand, 0, 50000, 0, 1000, "Rec Rand", 5, 1, purple), "recrand");
+	graphbase->Add(GraphDat(&neurodata->pspsig, 0, 50000, 0, 1000, "PSP Signal", 5, 1, lightblue), "pspsig");
+	graphbase->Add(GraphDat(&neurodata->V, 0, 50000, 0, 1000, "Rec V", 5, 1, lightgreen), "recV");
+	graphbase->Add(GraphDat(&neurodata->syn, 0, 50000, 0, 1000, "Rec Syn", 5, 1, lightblue), "recsyn");
+	graphbase->Add(GraphDat(&neurodata->psp, 0, 50000, 0, 1000, "Rec PSP", 5, 1, lightred), "recpsp");
+	graphbase->Add(GraphDat(&neurodata->rand, 0, 50000, 0, 1000, "Rec Rand", 5, 1, purple), "recrand");
 	//graphbase->Add(GraphDat(&oxyneurodata->inputrate, 0, 50000, 0, 1000, "Input Signal", 5, 1, lightgreen), "inputrate");
 
 	graphbase->Add(GraphDat(&magpop->storesum, 0, 1000, 0, 1000000, "Summed Store", 5, 1000, blue, 1000), "sumstore");
@@ -554,9 +554,9 @@ void MagNetModel::GraphData()
 	graphbase->Add(GraphDat(&magpop->synthratesumLong, 0, 15, 0, 300, "Summed Synth Rate", 5, 60, lightblue), "synthratesumlong");
 
 
-	graphbase->Add(GraphDat(&oxyneurodata->stimTL, 0, 500, 0, 20000, "Synth TL", 5, 1, lightgreen, 1000/datsample), "stimtl");
-	graphbase->Add(GraphDat(&oxyneurodata->stimTS, 0, 500, 0, 30, "Synth TS", 5, 1, lightblue, 1000/datsample), "stimts");
-	graphbase->Add(GraphDat(&oxyneurodata->mRNAstore, 0, 500, 0, 30, "mRNA store", 5, 1, lightred, 1000/datsample), "mrnastore");
+	graphbase->Add(GraphDat(&neurodata->stimTL, 0, 500, 0, 20000, "Synth TL", 5, 1, lightgreen, 1000/datsample), "stimtl");
+	graphbase->Add(GraphDat(&neurodata->stimTS, 0, 500, 0, 30, "Synth TS", 5, 1, lightblue, 1000/datsample), "stimts");
+	graphbase->Add(GraphDat(&neurodata->mRNAstore, 0, 500, 0, 30, "mRNA store", 5, 1, lightred, 1000/datsample), "mrnastore");
 
 	graphbase->Add(GraphDat(&magpop->storesumNorm, 0, 1000, 0, 300, "Summed Store Norm", 5, 60, lightblue), "sumstorenorm");
 
@@ -717,7 +717,6 @@ void MagNetModel::GraphData()
 		graphbase->GetGraph(tag)->gdataerr = &gridploterr[i];
 	}
 
-
 	gcodes[0] = "modelspikes";
 	gcodes[1] = "modelintervals";
 	gcodes[2] = "OxySecretion";
@@ -817,75 +816,4 @@ void MagNetModel::DataOutput()
 		outgrid->SetCell(i+5, 8, text.Format("%d", i*30));
 		outgrid->SetCell(i+5, 9, text.Format("%.0f", viewcell[0].srate30s[i]));
 	}
-
-	/*
-	for(i=0; i<cellcount; i++) {
-		//diagbox->Write(text.Format("Scanning cell %d %s ", i, celldata[i].name));
-		databox->histgrid->SetCell(0, i, celldata[i].name);
-		//databox->hazgrid->SetCell(0, i, celldata[i].name);
-		//diagbox->Write("Calling neurocalc\n");
-		viewcell[0].neurocalc(&(celldata[i]));
-		//diagbox->Write("OK\n"); 
-		for(j=0; j<histcount; j++) {
-			databox->histgrid->SetCell(j+1, i+1, text.Format("%.4f", viewcell[0].hist5norm[j]));
-			databox->hazgrid->SetCell(j+1, i+1, text.Format("%.4f", viewcell[0].haz5[j]));
-		}
-	}
-	*/
-	
-
-	//if(mod->mainwin->diagnostic) mod->diagbox->textbox->AppendText(text.Format("transfer start %d\n", sampstart));
-	//if(!outbox->IsShown()) outbox->Show(true);
-
-
-	/*
-	bincount = numneurons;
-	
-	col = 0;
-	grid->ClearCol(col);
-	for(i=1; i<=bincount; i++) grid->SetCell(i-1, col, text.Format("%d", i));
-
-	col = 1;
-	grid->ClearCol(col);
-	for(i=1; i<=bincount; i++) grid->SetCell(i-1, col, text.Format("%.2f", (double)nethist[i-1]));
-	*/
-
-	/*
-	void PlotModel::NeuroAnalysis()
-	{
-		int i, j;
-		int binsize = 5;
-		int timerange = 1000;
-		int gridmax = 500;
-		int histcount;
-		wxString text;
-
-		ParamStore *calcparams = neurobox->GetParams();
-		viewcell[0].normscale = (*calcparams)["normscale"];
-		timerange = (*calcparams)["histrange"];
-		//binsize = (*calcparams)["binsize"];
-		if(timerange < 0) timerange = 0;
-		histcount = timerange / binsize;
-		if(histcount > gridmax) histcount = gridmax;
-
-		for(j=0; j<histcount; j++) {
-			databox->histgrid->SetCell(j+1, 0, text.Format("%d", j*5));
-			databox->hazgrid->SetCell(j+1, 0, text.Format("%d", j*5));
-		}
-
-		for(i=0; i<cellcount; i++) {
-			//diagbox->Write(text.Format("Scanning cell %d %s ", i, celldata[i].name));
-			databox->histgrid->SetCell(0, i, celldata[i].name);
-			databox->hazgrid->SetCell(0, i, celldata[i].name);
-			//diagbox->Write("Calling neurocalc\n");
-			viewcell[0].neurocalc(&(celldata[i]));
-			//diagbox->Write("OK\n"); 
-			for(j=0; j<histcount; j++) {
-				databox->histgrid->SetCell(j+1, i+1, text.Format("%.4f", viewcell[0].hist5norm[j]));
-				databox->hazgrid->SetCell(j+1, i+1, text.Format("%.4f", viewcell[0].haz5[j]));
-			}
-		}
-		//databox->notebook->SetPageText(1, text.Format("%dms Histograms", binsize));
-		//databox->notebook->SetPageText(2, text.Format("%dms Hazards", binsize));
-	}*/
 }
