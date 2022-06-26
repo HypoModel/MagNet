@@ -261,6 +261,9 @@ MagSynthBox::MagSynthBox(MagNetModel *mod, const wxString& title, const wxPoint&
 {
 	int labelwidth = 60;
 	column = 0;
+	int panelmode = 0;
+
+	panelmode = 1;  // Parameters names for vaso synth paper
 
 	InitMenu();
 
@@ -273,24 +276,41 @@ MagSynthBox::MagSynthBox(MagNetModel *mod, const wxString& title, const wxPoint&
 	SetModFlag(ID_polymode, "polymode", "Poly(A) mRNA", 1); 
 	SetModFlag(ID_decaymode, "decaymode", "mRNA decay", 0); 
 
-	//paramset.AddCon("vsynrate", "vsynrate", 0.01, 0.001, 4, labelwidth); 
-	paramset.AddCon("mRNAinit", "mRNAinit", 20, 1, 2, labelwidth); 
-	paramset.AddCon("mRNAmax", "mRNAmax", 100, 1, 2, labelwidth); 
-	paramset.AddCon("mRNAhalflife", "mRNA HL", 1000, 1, 1, labelwidth); 
-	paramset.AddCon("vtrans", "vtrans", 0.01, 0.001, 6, labelwidth);
-	paramset.AddCon("synthdel", "synthdel", 3600, 360, 0, labelwidth);
-	paramset.AddCon("halflifeTS", "halflifeTS", 1000, 1, 1, labelwidth); 
-	paramset.AddCon("Sth", "Sth", 1, 0.01, 3, labelwidth); 
-	paramset.AddCon("Sn", "Sn", 2, 0.01, 2, labelwidth); 
-	paramset.AddCon("kTS", "kTS", 1, 0.01, 4, labelwidth); 
-	paramset.AddCon("maxTL", "maxTL", 5, 0.01, 4, labelwidth); 
-	paramset.AddCon("kTL", "kTL", 1, 0.01, 6, labelwidth); 
-	paramset.AddCon("halflifeTL", "halflifeTL", 1000, 1, 1, labelwidth); 
-	paramset.AddCon("basalTL", "basalTL", 1, 0.01, 4, labelwidth); 
-	paramset.AddCon("rateSR", "rateSR", 0.01, 0.001, 4, labelwidth); 
-	paramset.AddCon("synscale", "synscale", 0.0001, 0.00, 7, labelwidth);
+	if(panelmode == 1) {
+		paramset.AddCon("mRNAinit", "m_init", 20, 1, 2, labelwidth); 
+		paramset.AddCon("mRNAmax", "m_max", 100, 1, 2, labelwidth); 
+		paramset.AddCon("mRNAhalflife", "m HL", 1000, 1, 1, labelwidth); 
+		paramset.AddCon("synthdel", "synthdel", 0, 360, 0, labelwidth);
+		paramset.AddCon("halflifeTS", "T HL", 1000, 1, 1, labelwidth); 
+		paramset.AddCon("kTS", "kT", 1, 0.01, 4, labelwidth); 
+		paramset.AddCon("maxTL", "maxTL", 5, 0.01, 4, labelwidth); 
+		paramset.AddCon("kTL", "kTL", 1, 0.01, 6, labelwidth); 
+		paramset.AddCon("halflifeTL", "TL HL", 1000, 1, 1, labelwidth); 
+		paramset.AddCon("basalTL", "TL_basal", 1, 0.01, 4, labelwidth); 
+		paramset.AddCon("rateSR", "s_r", 0.01, 0.001, 4, labelwidth); 
+		paramset.AddCon("synscale", "s_scale", 0.0001, 0.00, 7, labelwidth);
 
-	paramset.SetMinMax("halflifeVS", 0, 500000);
+		paramset.SetMinMax("halflifeVS", 0, 500000);
+	}
+	else {
+		paramset.AddCon("mRNAinit", "mRNAinit", 20, 1, 2, labelwidth); 
+		paramset.AddCon("mRNAmax", "mRNAmax", 100, 1, 2, labelwidth); 
+		paramset.AddCon("mRNAhalflife", "mRNA HL", 1000, 1, 1, labelwidth); 
+		paramset.AddCon("vtrans", "vtrans", 0.01, 0.001, 6, labelwidth);
+		paramset.AddCon("synthdel", "synthdel", 0, 360, 0, labelwidth);
+		paramset.AddCon("halflifeTS", "halflifeTS", 1000, 1, 1, labelwidth); 
+		paramset.AddCon("kTS", "kTS", 1, 0.01, 4, labelwidth); 
+		paramset.AddCon("maxTL", "maxTL", 5, 0.01, 4, labelwidth); 
+		paramset.AddCon("kTL", "kTL", 1, 0.01, 6, labelwidth); 
+		paramset.AddCon("halflifeTL", "halflifeTL", 1000, 1, 1, labelwidth); 
+		paramset.AddCon("basalTL", "basalTL", 1, 0.01, 4, labelwidth); 
+		paramset.AddCon("rateSR", "rateSR", 0.01, 0.001, 4, labelwidth); 
+		paramset.AddCon("synscale", "synscale", 0.0001, 0.00, 7, labelwidth);
+
+		paramset.SetMinMax("halflifeVS", 0, 500000);
+	}
+
+	
 
 	ParamLayout(2);
 
@@ -553,11 +573,9 @@ MagNeuroDataBox::MagNeuroDataBox(MagNetModel *model, const wxString& title, cons
 {
 	int datwidth, labelwidth;
 	column = 0;
-	//boxtag = "OXYNEURODATA";
 	mod = model;
 
-	//neurons = mod->neurons;
-	neurodex = 0;  // initialising the index for neurones
+	neurodex = 0;  
 	neurocount = 0;
 
 	// Neuron selection

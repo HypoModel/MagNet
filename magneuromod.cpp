@@ -169,7 +169,8 @@ MagNeuroMod::MagNeuroMod(int index, MagNeuron *oxyneuron, MagNetMod *oxynetmod)
 	// Synthesis
 	//vsynrate = (*synthparams)["vsynrate"];  
 	vsynrate = 0;       // no longer in use 10/8/21
-	vtrans = (*synthparams)["vtrans"];
+	// vtrans = (*synthparams)["vtrans"]; 
+	vtrans = 0;  // no longer in use 26/6/22
 	mRNAmax = (*synthparams)["mRNAmax"];
 	mRNAinit = (*synthparams)["mRNAinit"];
 	mRNAhalflife = (*synthparams)["mRNAhalflife"];
