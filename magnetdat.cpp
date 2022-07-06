@@ -3,7 +3,8 @@
 *  HypoModel
 *
 *  Created by Duncan MacGregor
-*  June 2017
+*  University of Edinburgh 2022
+*  Released under MIT license, see https://opensource.org/licenses/MIT
 *
 */
 

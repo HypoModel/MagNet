@@ -1,8 +1,11 @@
 /*
 *  magnetmodel.h
 *
-*  Created by Duncan MacGregor.  
+*  Created by Duncan MacGregor
+*  University of Edinburgh 2022
+*  Released under MIT license, see https://opensource.org/licenses/MIT
 *
+* 
 *	Classes:
 *		- "MagNeuron: public NeuroDat"    --->   Single neuron parameters and variables (spiking ones from class NeuroData, the rest included here)
 *		- "MagNetDat"    --->   Just getting parameters for the Network (see magnetdat.cpp)

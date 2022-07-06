@@ -1,8 +1,10 @@
 /*
-*  oxynetpanels.cpp
-*  HypoModel
+*  magnetpanels.cpp
+*  
+*  Created by Duncan MacGregor
+*  University of Edinburgh 2022
+*  Released under MIT license, see https://opensource.org/licenses/MIT
 *
-*  Created by Duncan MacGregor.
 *
 */
 

@@ -1,3 +1,12 @@
+/*
+*  magnetdat.h
+*
+*  Created by Duncan MacGregor
+*  University of Edinburgh 2022
+*  Released under MIT license, see https://opensource.org/licenses/MIT
+*
+*/
+
 
 
 #ifndef MAGNETDAT_H

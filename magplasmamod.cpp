@@ -3,9 +3,9 @@
 *  magplasmamod.cpp
 *  HypoModel
 *
-*  Created by Duncan MacGregor.
-*
-*	
+*  Created by Duncan MacGregor
+*  University of Edinburgh 2022
+*  Released under MIT license, see https://opensource.org/licenses/MIT
 *
 *
 */
