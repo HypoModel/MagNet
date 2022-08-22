@@ -382,7 +382,7 @@ int MagNetMod::InputGen()
 	int maxinputcells = 500;
 	int maxconnect = 1000;
 
-	FILE *ofp, *tofp;
+	FILE *ofp = NULL, *tofp = NULL;
 	wxCommandEvent progevent(wxEVT_COMMAND_TEXT_UPDATED, ID_Progress);
 
 	// std::vector<std::vector<int>> aVector(row_size, std::vector<int>(col_size));
