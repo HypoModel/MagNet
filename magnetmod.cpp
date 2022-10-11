@@ -83,7 +83,7 @@ void *MagNetMod::Entry()
 
 	for(i=0; i<numneurons; i++) {
 		synvar = (*(neurons[i].spikeparams))["synvar"];
-		mainwin->diagbox->Write(text.Format("MagNetMod neuron %d synvar %.4f\n", i, synvar));
+		//mainwin->diagbox->Write(text.Format("MagNetMod neuron %d synvar %.4f\n", i, synvar));
 		syndist[(int)(synvar*200)/10]++;
 		//neurate = neurons[i].ratemean[0];
 		neurate = neurons[i].spikecount2 / runtime;
