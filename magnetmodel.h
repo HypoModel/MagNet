@@ -310,6 +310,7 @@ public:
     void OnEndRun(wxCommandEvent&);
 	void ParamScan();
 	void NeuroGen();   // moved from MagNetMod
+	void GridOutput();
 };
 
 

@@ -476,13 +476,13 @@ void MagNetModel::NeuroGen()
 			// Neuron heterogeneity
 			paramsdgen = gaussian(0, 1);
 			lognormvar = exp(0 + (*netparams)["synvarsd"] * paramsdgen);
-			modneurons[i].synvar = lognormvar;
+			modneurons[i].synvar = lognormvar;                                    
 			// Store initialisation
 			modneurons[i].mRNAinit = (*netparams)["mRNAinit"];
 			modneurons[i].storeinit = (*netparams)["storeinit"];
 		}
 
-		(*modneurons[i].spikeparams)["synvar"] = modneurons[i].synvar;
+		//(*modneurons[i].spikeparams)["synvar"] = modneurons[i].synvar;             // 29/10/22 temp disable for spike fits plasma mean
 		(*modneurons[i].synthparams)["mRNAinit"] = modneurons[i].mRNAinit;
 		(*modneurons[i].secparams)["Rinit"] = modneurons[i].storeinit;
 		modneurons[i].netinit = (*netbox->modflags)["netinit"];
@@ -761,6 +761,53 @@ void MagNetModel::GSwitch(GraphDisp *gpos, ParamStore *gflags)
 			gpos[i].Front((*graphbase)[gdex]);
 			gpos[i].sdex = graphset->sdex;
 		}
+}
+
+
+
+void MagNetModel::GridOutput()
+{
+	int i, row, col;
+	int runtime, substeps, modsubsteps;
+	int samprate, sampstart, sampstop, sampcount;
+	wxString text;
+
+	TextGrid* grid = gridbox->outputgrid;
+	grid->CopyUndo();
+
+	//ParamStore* samparams = mod->conbox->GetParams();
+
+	runtime = 1000;
+	substeps = 1;
+	modsubsteps = 8;
+	//samplerate = 5;
+
+	//sampstart = (*samparams)["sampstart"];
+	//sampstop = (*samparams)["sampstop"];
+	//samprate = (*samparams)["samprate"];
+
+	//sampcount = mod->ghdata->sampcount - 1;              // take off extra sample at time 0
+
+	//if(mod->mainwin->diagnostic) mod->diagbox->textbox->AppendText(text.Format("transfer start %d\n", sampstart));
+
+	//if (!mod->outbox->IsShown()) mod->outbox->Show(true);
+
+
+	samprate = 1;
+	sampcount = 100;
+	sampstart = 20;
+
+	col = 0;
+	grid->ClearCol(col);
+	grid->SetCellValue(0, col, "Sample Time (min)");
+	//for(i=0; i<=sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.0f", (double)i*samprate+sampstart));
+	for(i=0; i<=sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.0f", (double)i * samprate));
+
+	col = 1;
+	grid->ClearCol(col);
+	grid->SetCellValue(0, col, "Plasma");
+	//for(i=0; i<sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.2f", mod->ghdata->hs[i]));
+	for(i=0; i<=sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.2f", magpop->plasmaLong[i]));
 }
 
 
