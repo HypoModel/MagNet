@@ -482,7 +482,7 @@ void MagNetModel::NeuroGen()
 			modneurons[i].storeinit = (*netparams)["storeinit"];
 		}
 
-		//(*modneurons[i].spikeparams)["synvar"] = modneurons[i].synvar;             // 29/10/22 temp disable for spike fits plasma mean
+		(*modneurons[i].spikeparams)["synvar"] = modneurons[i].synvar;             // 29/10/22 temp disable for spike fits plasma mean
 		(*modneurons[i].synthparams)["mRNAinit"] = modneurons[i].mRNAinit;
 		(*modneurons[i].secparams)["Rinit"] = modneurons[i].storeinit;
 		modneurons[i].netinit = (*netbox->modflags)["netinit"];

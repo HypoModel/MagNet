@@ -751,7 +751,8 @@ void MagNeuroMod::neuromod()
 			CaEnt = Einh * Cinh * (tB + Bbase); // Ca Entry		
 			
 			//secX = pow(tE, secExp) * alpha * tP;			// Rate of secretion (vesicle exocytosis)
-			secX = tE * tE * tE * alpha * tP;
+			if(secExp == 3) secX = tE * tE * tE * alpha * tP;             // fixed vaso
+			if(secExp == 2) secX = tE * tE * alpha * tP;                    // fixed oxy
 
 			// Reserve Store (tR) and Releasable Pool (tP)
 			if(tP < Pmax) fillP = beta * tR / Rmax; 
