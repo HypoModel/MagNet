@@ -569,6 +569,7 @@ MagSecBox::MagSecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos
 	panel->Layout();
 }
 
+
 // Box for showing the analysis of a particular neuron of the Network
 MagNeuroDataBox::MagNeuroDataBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(model, title, pos, size, "OXYNEURODATA")
@@ -632,6 +633,7 @@ MagNeuroDataBox::MagNeuroDataBox(MagNetModel *model, const wxString& title, cons
 	Connect(wxEVT_SPIN_DOWN, wxSpinEventHandler(MagNeuroDataBox::OnPrev));
 	Connect(wxEVT_SPIN, wxSpinEventHandler(MagNeuroDataBox::OnSpin));
 }
+
 
 // Jorge comment - returns calculations for each neuron of the network when we want to see their graphs
 void MagNeuroDataBox::NeuroData()
@@ -1088,4 +1090,112 @@ void MagSignalBox::OnRun(wxCommandEvent& event)
 
 	mod->RunModel();
 	mainwin->scalebox->GraphUpdate();
+}
+
+
+
+MagGenBox::MagGenBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size)
+	: ParamBox(model, title, pos, size)
+{
+	labelwidth = 50;
+	int sdwidth = 30;
+	boxtag = "MAGNOGEN";
+	mod = model;
+
+	//SetMenuBar(menuBar);
+
+	gentags[0] = "halflifeHAP";
+	gentags[1] = "kAHP";
+	gentags[2] = "kAHP2";
+	gentags[3] = "kDAP";
+	gentags[4] = "halflifeDyno";
+	gentags[5] = "ratioDyno";
+	gentags[6] = "kCa";
+	gentags[7] = "gKL";
+	gentags[8] = "pspmag";
+	gentags[9] = "Vrest";
+	gentags[10] = "synvar";
+
+	numgen = 11;
+
+	paramset.AddCon("halflifeHAPbase", "HAP hl", 9, 1, 1, labelwidth); 
+	paramset.AddCon("halflifeHAPsd", "SD", 1, 0.1, 1, sdwidth); 
+
+	paramset.AddCon("kAHPbase", "kAHP", 0.04, 0.005, 5, labelwidth);
+	paramset.AddCon("kAHPsd", "SD", 0.01, 0.001, 5, sdwidth);
+
+	paramset.AddCon("kAHP2base", "kAHP2", 0.00001, 0.005, 6, labelwidth);
+	paramset.AddCon("kAHP2sd", "SD", 0.00001, 0.001, 6, sdwidth);
+
+	paramset.AddCon("kDAPbase", "kDAP", 1, 0.1, 2, labelwidth);
+	paramset.AddCon("kDAPsd", "SD", 0.5, 0.1, 2, sdwidth);
+
+	paramset.AddCon("ratioDynobase", "Dyno rat", 14, 0.1, 2, labelwidth);
+	paramset.AddCon("ratioDynosd", "SD", 1.5, 0.1, 2, sdwidth);
+
+	paramset.AddCon("halflifeDynobase", "Dyno hl", 7500, 500, 0, labelwidth);
+	paramset.AddCon("halflifeDynosd", "SD", 1000, 100, 0, sdwidth);
+
+	paramset.AddCon("kCabase", "kCa", 11, 0.5, 1, labelwidth);
+	paramset.AddCon("kCasd", "SD", 1, 0.5, 1, sdwidth);
+
+	paramset.AddCon("gKLbase", "gKL", 17, 1, 1, labelwidth);
+	paramset.AddCon("gKLsd", "SD", 2, 0.5, 1, sdwidth);
+
+	paramset.AddCon("pspmagbase", "pspmag", 4, 0.1, 2, labelwidth);
+	paramset.AddCon("pspmagsd", "SD", 0, 0.1, 2, sdwidth);
+
+	paramset.AddCon("Vrestbase", "Vrest", -62, 0.1, 2, labelwidth);
+	paramset.AddCon("Vrestsd", "SD", 0, 0.1, 2, sdwidth);
+
+	paramset.AddCon("synvarbase", "synvar", 1, 0.1, 2, labelwidth);
+	paramset.AddCon("synvarsd", "SD", 0, 0.05, 2, sdwidth);
+
+
+	wxFlexGridSizer *gengrid = new wxFlexGridSizer(2, 5, 0);
+	for(i=0; i<numgen; i++) {
+		//gengrid->Add(TextLabel(labelset[i]), 0, wxALIGN_CENTRE);
+		gengrid->Add(paramset.con[i*2]);
+		gengrid->Add(paramset.con[i*2+1]);
+	}
+
+	parambox->AddSpacer(10);
+	parambox->Add(gengrid, 0);
+
+	buttonbox = new wxBoxSizer(wxHORIZONTAL);
+	AddButton(ID_Generate, "Generate", 80, buttonbox);
+	AddButton(ID_Zero, "Zero", 80, buttonbox);
+
+	mainbox->AddSpacer(5);
+	mainbox->Add(parambox, 1, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+	mainbox->AddSpacer(10);
+	mainbox->Add(buttonbox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 5);	
+
+	panel->Layout();
+
+	Connect(ID_Zero, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MagGenBox::OnZero));
+	Connect(ID_Generate, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MagGenBox::OnGenerate));
+	Connect(wxEVT_CLOSE_WINDOW, wxCloseEventHandler(MagGenBox::OnClose));
+	Connect(ID_paramstore, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MagGenBox::OnParamStore));
+	Connect(ID_paramload, wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler(MagGenBox::OnParamLoad));
+}
+
+
+void MagGenBox::OnZero(wxCommandEvent& WXUNUSED(event))
+{
+	for(i=0; i<numgen; i++)
+		paramset.con[(int)paramset.ref[gentags[i] + "sd"]]->SetValue(0);
+}
+
+
+void MagGenBox::OnGenerate(wxCommandEvent& WXUNUSED(event))
+{
+	ParamStore *genparams = GetParams();
+	//mod->spikebox->NeuroGen(genparams);
+}
+
+
+void MagGenBox::OnClose(wxCloseEvent& event)
+{
+	this->Show(false);
 }

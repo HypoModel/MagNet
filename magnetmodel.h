@@ -263,6 +263,7 @@ public:
 	MagDendBox *dendbox;
 	MagNetProtoBox *protobox;
 	MagSynthBox *synthbox;
+	MagGenBox* genbox;
 
 	MagNetDat *netdata;
 	MagNeuroDat *neurodata;

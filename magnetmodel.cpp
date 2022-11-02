@@ -458,11 +458,12 @@ void MagNetModel::NeuroGen()
 	DiagWrite("NeuroGen call\n");
 
 	ParamStore *netparams = netbox->GetParams();
-	ParamStore *neuroparams = spikebox->GetParams();
+	ParamStore *spikeparams = spikebox->GetParams();
 
-	//ParamSet *vasoset = vasomod->vasobox->paramset;
-	//numgen = vasomod->vasogenbox->numgen;
-	//tags = vasomod->vasogenbox->gentags;
+	// Heterogeneous spiking parameters
+	ParamStore *genparams = genbox->GetParams();
+	numgen = genbox->numgen;
+	tags = genbox->gentags;
 
 	for(i=0; i<numneurons; i++) {
 		modneurons[i].type = 0;
@@ -488,8 +489,61 @@ void MagNetModel::NeuroGen()
 		modneurons[i].netinit = (*netbox->modflags)["netinit"];
 		modneurons[i].storereset = (*netbox->modflags)["storereset"];
 		modneurons[i].initflag = true;
+
+
+		// heterogeneous spiking parameter code
+		ParamStore *params = modneurons[i].spikeparams;
+		
+		for(p=0; p<numgen; p++) {
+			paramsdgen = gaussian(0, 1);
+			(*params)[tags[p] + "sdgen"] = paramsdgen;
+			paramval = (*genparams)[tags[p] + "base"] + (*genparams)[tags[p] + "sd"] * paramsdgen;
+			(*params)[tags[p]] = paramval;
+			
+			//if(paramval < 0 && tags[p] != "Vrest") paramval = 0;
+			//if(tags[p] == "ratioDyno") {
+			//	dynotau = 1/log((double)2)/((*params)["halflifeDyno"]/1000);
+			//	(*params)["kDyno"] = dynotau * paramval; 
+			//}
+			//else if(tags[p] == "synvar") {
+			//lognormvar = exp(0 + (*genparams)[tags[p] + "sd"] * paramsdgen);
+			//(*params)["synvar"] = lognormvar;
+			//}
+		}
 	}
 }
+
+/*
+void VasoBox::NeuroGen(ParamStore *genparams)
+{
+	int i, conref, numgen;
+	wxString paramtag[10];
+	double paramval;
+	double dynotau, halflifeDyno;
+
+	paramtag[0] = "halflifeHAP";
+	paramtag[1] = "kAHP";
+	paramtag[2] = "kDAP";
+	paramtag[3] = "halflifeDyno";
+	paramtag[4] = "ratioDyno";
+	paramtag[5] = "kCa";
+	paramtag[6] = "gKL";
+	numgen = 7;
+
+	for(i=0; i<numgen; i++) {
+		paramval = gaussian((*genparams)[paramtag[i] + "base"], (*genparams)[paramtag[i] + "sd"]);
+		if(paramval < 0) paramval = 0;
+		if(paramtag[i] == "halflifeDyno") halflifeDyno = paramval; 
+		if(paramtag[i] == "ratioDyno") {
+			dynotau = 1/log((double)2)/(halflifeDyno/1000);  // FIX THIS, halflifedyno not set
+			paramval = dynotau * paramval; 
+			conref = paramset.ref["kDyno"];
+		}
+		else conref = paramset.ref[paramtag[i]];	
+		paramset.con[conref]->SetValue(paramval);
+	}
+}
+*/
 
 
 MagNetModel::~MagNetModel()

@@ -20,6 +20,19 @@
 class MagNetModel;
 
 
+class MagGenBox: public ParamBox
+{
+public:	
+	wxString gentags[20];
+	int numgen;
+	MagNetModel* mod;
+
+	MagGenBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
+	void OnGenerate(wxCommandEvent& event);
+	void OnZero(wxCommandEvent& event);
+	void OnClose(wxCloseEvent& event);
+};
+
 
 class MagSignalBox: public ParamBox
 {
@@ -75,6 +88,7 @@ public:
 
 	void OxyPanel();
 	void VasoPanel();
+	//void NeuroGen(ParamStore *);
 
 	MagSpikeBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size);
 };
