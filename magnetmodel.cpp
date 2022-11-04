@@ -87,6 +87,7 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
 	signalbox = new MagSignalBox(this, "Signal Box", wxPoint(0, 300), wxSize(400, 500));
 	protobox = new MagNetProtoBox(this, "Protocol", wxPoint(0, 0), wxSize(320, 500));
 	synthbox = new MagSynthBox(this, "Synthesis", wxPoint(0, 0), wxSize(320, 500));
+	genbox = new MagGenBox(this, "Neuron Generation", wxPoint(0, 0), wxSize(320, 500));
 
 	// Panel control boxes, must come last to link panel buttons
 	spikebox = new MagSpikeBox(this, "Spiking", wxPoint(0, 0), wxSize(320, 500));
@@ -150,6 +151,7 @@ MagNetModel::MagNetModel(int type, wxString name, HypoMain *main)
 	modtools.AddBox(signalbox, true);
 	modtools.AddBox(protobox, true);
 	modtools.AddBox(synthbox, true);
+	modtools.AddBox(genbox, true);
     #ifdef HYPOSOUND
     modtools.AddBox(soundbox, true);
     #endif
@@ -492,23 +494,15 @@ void MagNetModel::NeuroGen()
 
 
 		// heterogeneous spiking parameter code
-		ParamStore *params = modneurons[i].spikeparams;
-		
-		for(p=0; p<numgen; p++) {
-			paramsdgen = gaussian(0, 1);
-			(*params)[tags[p] + "sdgen"] = paramsdgen;
-			paramval = (*genparams)[tags[p] + "base"] + (*genparams)[tags[p] + "sd"] * paramsdgen;
-			(*params)[tags[p]] = paramval;
-			
-			//if(paramval < 0 && tags[p] != "Vrest") paramval = 0;
-			//if(tags[p] == "ratioDyno") {
-			//	dynotau = 1/log((double)2)/((*params)["halflifeDyno"]/1000);
-			//	(*params)["kDyno"] = dynotau * paramval; 
-			//}
-			//else if(tags[p] == "synvar") {
-			//lognormvar = exp(0 + (*genparams)[tags[p] + "sd"] * paramsdgen);
-			//(*params)["synvar"] = lognormvar;
-			//}
+		if((*netbox->modflags)["neurogen"]) {
+			ParamStore *params = modneurons[i].spikeparams;
+			for (p = 0; p < numgen; p++) {
+				paramsdgen = gaussian(0, 1);
+					(*params)[tags[p] + "sdgen"] = paramsdgen;
+					if (i == 0) DiagWrite(text.Format("NeuroGen param %d tag %s\n", p, tags[p]));
+					paramval = (*genparams)[tags[p] + "base"] + (*genparams)[tags[p] + "sd"] * paramsdgen;
+					(*params)[tags[p]] = paramval;
+			}
 		}
 	}
 }

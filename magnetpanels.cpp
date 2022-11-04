@@ -383,6 +383,11 @@ MagSpikeBox::MagSpikeBox(MagNetModel *mod, const wxString& title, const wxPoint&
 	buttonbox->AddSpacer(5);
 	buttonbox->AddStretchSpacer();
 
+	SetPanel(ID_Generate, mod->genbox);
+	AddButton(ID_Generate, "Gen", buttonwidth, buttonbox);
+	buttonbox->AddSpacer(5);
+	buttonbox->AddStretchSpacer();
+
 	mainbox->AddSpacer(5);
 	mainbox->Add(parambox, 1, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
 	mainbox->AddStretchSpacer();
@@ -1104,32 +1109,35 @@ MagGenBox::MagGenBox(MagNetModel *model, const wxString& title, const wxPoint& p
 
 	//SetMenuBar(menuBar);
 
-	gentags[0] = "halflifeHAP";
-	gentags[1] = "kAHP";
-	gentags[2] = "kAHP2";
-	gentags[3] = "kDAP";
-	gentags[4] = "halflifeDyno";
-	gentags[5] = "ratioDyno";
-	gentags[6] = "kCa";
-	gentags[7] = "gKL";
-	gentags[8] = "pspmag";
-	gentags[9] = "Vrest";
-	gentags[10] = "synvar";
+	//gentags[0] = "halflifeHAP";
+	//gentags[1] = "kAHP";
+	//gentags[2] = "kAHP2";
+	//gentags[3] = "kDAP";
+	//gentags[4] = "halflifeDyno";
+	//gentags[5] = "ratioDyno";
+	//gentags[6] = "kCa";
+	//gentags[7] = "gKL";
+	//gentags[8] = "pspmag";
+	//gentags[9] = "Vrest";
+	//gentags[10] = "synvar";
 
-	numgen = 11;
+	numgen = 2;
 
-	paramset.AddCon("halflifeHAPbase", "HAP hl", 9, 1, 1, labelwidth); 
-	paramset.AddCon("halflifeHAPsd", "SD", 1, 0.1, 1, sdwidth); 
+	//paramset.AddCon("halflifeHAPbase", "HAP hl", 9, 1, 1, labelwidth); 
+	//paramset.AddCon("halflifeHAPsd", "SD", 1, 0.1, 1, sdwidth); 
 
+	gentags[0] = "kAHP";
 	paramset.AddCon("kAHPbase", "kAHP", 0.04, 0.005, 5, labelwidth);
 	paramset.AddCon("kAHPsd", "SD", 0.01, 0.001, 5, sdwidth);
 
-	paramset.AddCon("kAHP2base", "kAHP2", 0.00001, 0.005, 6, labelwidth);
-	paramset.AddCon("kAHP2sd", "SD", 0.00001, 0.001, 6, sdwidth);
+	//paramset.AddCon("kAHP2base", "kAHP2", 0.00001, 0.005, 6, labelwidth);
+	//paramset.AddCon("kAHP2sd", "SD", 0.00001, 0.001, 6, sdwidth);
 
+	gentags[1] = "kDAP";
 	paramset.AddCon("kDAPbase", "kDAP", 1, 0.1, 2, labelwidth);
 	paramset.AddCon("kDAPsd", "SD", 0.5, 0.1, 2, sdwidth);
 
+	/*
 	paramset.AddCon("ratioDynobase", "Dyno rat", 14, 0.1, 2, labelwidth);
 	paramset.AddCon("ratioDynosd", "SD", 1.5, 0.1, 2, sdwidth);
 
@@ -1150,6 +1158,7 @@ MagGenBox::MagGenBox(MagNetModel *model, const wxString& title, const wxPoint& p
 
 	paramset.AddCon("synvarbase", "synvar", 1, 0.1, 2, labelwidth);
 	paramset.AddCon("synvarsd", "SD", 0, 0.05, 2, sdwidth);
+	*/
 
 
 	wxFlexGridSizer *gengrid = new wxFlexGridSizer(2, 5, 0);
