@@ -642,7 +642,7 @@ void MagNetModel::GraphData()
 	if(diagbox) diagbox->textbox->AppendText(graphset->Display());
 
 	graphset = graphbase->NewSet("Model Intervals", "modelintervals");
-	graphset->IntervalSet("model");
+	graphset->IntervalSet("model", true, false);
 
 	/*
 	graphset->AddFlag("binrestog1", 1);
@@ -708,8 +708,10 @@ void MagNetModel::GraphData()
 	graphset->AddFlag("selectmode", 10);
 	graphset->Add("iodmod", 0);
 	graphset->Add("iodburstmod", 1);
-	graphset->Add("iodselectmod", 10);
-	graphset->Add("iodselectmod", 11);
+	//graphset->Add("iodselectmod", 10);
+	//graphset->Add("iodselectmod", 11);
+	graphset->Add("iodmod", 10);
+	graphset->Add("iodmod", 11);
 
 	graphbase->Add(GraphDat(&nethist, 0, 50, 0, 100, "Net Histogram 1", 1, 1, lightblue), "nethist1");
 
