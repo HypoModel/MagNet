@@ -693,6 +693,12 @@ void MagNetModel::GraphData()
 	graphset->Add(tag + "rate10s", 10);
 	graphset->Add(tag + "rate30s", 20);
 	graphset->Add(tag + "rate300s", 30);
+
+
+	// Multi Cell Plots
+	neurobox->cellpanel->neuropop.popdat->PlotSetBasic(graphbase, "MultiCell ", purple, 1, "multicell");
+    graphset = graphbase->NewSet("MultiCell Intervals", "multiintervals");
+	graphset->IntervalSetBasic("multicell", false, false);
 	
 
 	//graphbase->Add(GraphDat(&currmodneuron->IoDdata, 0, 100, 0, 100, "IoD Model", 2, 1, lightblue), "iodmod");
