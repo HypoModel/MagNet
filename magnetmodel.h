@@ -22,10 +22,10 @@
 
 
 #include "wx/wx.h"
-#include <hypomodel.h>
-#include <magnetdat.h>
-#include <magnetpanels.h>
-#include <hyponeuro.h>
+#include "hypomodel.h"
+#include "magnetdat.h"
+#include "magnetpanels.h"
+#include "hyponeuro.h"
 
 
 enum {

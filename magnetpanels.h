@@ -13,8 +13,8 @@
 #pragma once
 
 
-#include <hypomodel.h>
-#include <magnetdat.h>
+#include "hypomodel.h"
+#include "magnetdat.h"
 
 
 class MagNetModel;

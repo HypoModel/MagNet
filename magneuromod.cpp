@@ -251,7 +251,7 @@ void MagNeuroMod::neuromod()
 	double erand, irand;
 	int maxspikes;
 	bool flagError = false;
-	sfmt_t sfmt;   // new SFMT random number generator  July 2020
+	//sfmt_t sfmt;   // new SFMT random number generator  July 2020
 
 	double epspt, ipspt;
 	double pspRatio;
@@ -399,7 +399,7 @@ void MagNeuroMod::neuromod()
 	seed = modseed + neurodex;
 	//seed = 1568637350;
 	//para_init_mrand(neurodex, seed);
-	sfmt_init_gen_rand(&sfmt, seed);
+	//sfmt_init_gen_rand(&sfmt, seed);
 
 
 	// random number test
@@ -619,8 +619,8 @@ void MagNeuroMod::neuromod()
 
 			if(totalepsprate > 0) {
 				while(epspt < hstep) {
-					//erand = para_mrand01(neurodex);
-					erand = sfmt_genrand_real2(&sfmt);
+					erand = para_mrand01(neurodex);
+					//erand = sfmt_genrand_real2(&sfmt);
 					nepsp++;
 					//epspt = -log(1 - para_mrand01(neurodex)) / totalepsprate + epspt;
 					epspt = -log(1 - erand) / totalepsprate + epspt;
@@ -636,8 +636,8 @@ void MagNeuroMod::neuromod()
 
 			if(totalipsprate > 0) {
 				while(ipspt < hstep) {
-					//irand = para_mrand01(neurodex);
-					irand = sfmt_genrand_real2(&sfmt);
+					irand = para_mrand01(neurodex);
+					//irand = sfmt_genrand_real2(&sfmt);
 					nipsp++;
 					//ipspt = -log(1 - para_mrand01(neurodex)) / totalipsprate + ipspt;
 					ipspt = -log(1 - irand) / totalipsprate + ipspt;
@@ -667,8 +667,8 @@ void MagNeuroMod::neuromod()
 
 			if(epsprate2 > 0) {
 				while(epspt2 < hstep) {
-					//erand = para_mrand01(neurodex);
-					erand = sfmt_genrand_real2(&sfmt);
+					erand = para_mrand01(neurodex);
+					//erand = sfmt_genrand_real2(&sfmt);
 					nepsp2++;
 					epspt2 = -log(1 - erand) / epsprate2 + epspt2;
 				}
