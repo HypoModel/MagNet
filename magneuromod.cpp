@@ -396,10 +396,16 @@ void MagNeuroMod::neuromod()
 
 	double *synthrec = new double[35000];  // record synthrate for delay recall, minute sampled capacity for 24 days
 
+
+	// initialise random number generator
 	seed = modseed + neurodex;
 	//seed = 1568637350;
 	//para_init_mrand(neurodex, seed);
 	//sfmt_init_gen_rand(&sfmt, seed);
+
+	std::mt19937 randgen(seed);
+	std::uniform_real_distribution<float> unif01(0, 1);
+
 
 
 	// random number test
@@ -619,7 +625,8 @@ void MagNeuroMod::neuromod()
 
 			if(totalepsprate > 0) {
 				while(epspt < hstep) {
-					erand = para_mrand01(neurodex);
+					erand = unif01(randgen);
+					//erand = para_mrand01(neurodex);
 					//erand = sfmt_genrand_real2(&sfmt);
 					nepsp++;
 					//epspt = -log(1 - para_mrand01(neurodex)) / totalepsprate + epspt;
@@ -636,7 +643,8 @@ void MagNeuroMod::neuromod()
 
 			if(totalipsprate > 0) {
 				while(ipspt < hstep) {
-					irand = para_mrand01(neurodex);
+					irand = unif01(randgen);
+					//irand = para_mrand01(neurodex);
 					//irand = sfmt_genrand_real2(&sfmt);
 					nipsp++;
 					//ipspt = -log(1 - para_mrand01(neurodex)) / totalipsprate + ipspt;
@@ -649,7 +657,8 @@ void MagNeuroMod::neuromod()
 			
 			if(epsprate1 > 0) {
 				while(epspt1 < hstep) {
-					erand = para_mrand01(neurodex);
+					erand = unif01(randgen);
+					//erand = para_mrand01(neurodex);
 					nepsp1++;
 					epspt1 = -log(1 - erand) / epsprate1 + epspt1;
 				}
@@ -658,7 +667,8 @@ void MagNeuroMod::neuromod()
 
 			if(ipsprate1 > 0) {
 				while(ipspt1 < hstep) {
-					irand = para_mrand01(neurodex);
+					erand = unif01(randgen);
+					//irand = para_mrand01(neurodex);
 					nipsp1++;
 					ipspt1 = -log(1 - irand) / ipsprate1 + ipspt1;
 				}
@@ -667,7 +677,8 @@ void MagNeuroMod::neuromod()
 
 			if(epsprate2 > 0) {
 				while(epspt2 < hstep) {
-					erand = para_mrand01(neurodex);
+					erand = unif01(randgen);
+					//erand = para_mrand01(neurodex);
 					//erand = sfmt_genrand_real2(&sfmt);
 					nepsp2++;
 					epspt2 = -log(1 - erand) / epsprate2 + epspt2;
