@@ -240,6 +240,23 @@ void *MagNeuroMod::Entry()
 }
 
 
+// fast random code from The Cherno, https://www.youtube.com/watch?v=5_RAHZQCPjE
+
+static uint32_t PCG_Hash(uint32_t input)
+{
+	uint32_t state = input * 747796405u + 2891336453u;
+	uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+	return (word >> 22u) ^ word;
+}
+
+
+static double RandomFloat(uint32_t& seed)
+{
+	seed = PCG_Hash(seed);
+	return (double)seed / (double)(std::numeric_limits<uint32_t>::max());
+}
+
+
 // Neural model code including integrated spiking, secretion, and synthesis models
 
 void MagNeuroMod::neuromod() 
@@ -247,7 +264,7 @@ void MagNeuroMod::neuromod()
 	int i, step;
 	int runtime, runtime100;
 	wxString text;
-	unsigned long seed; 
+	unsigned int seed; 
 	double erand, irand;
 	int maxspikes;
 	bool flagError = false;
@@ -403,8 +420,8 @@ void MagNeuroMod::neuromod()
 	//para_init_mrand(neurodex, seed);
 	//sfmt_init_gen_rand(&sfmt, seed);
 
-	std::mt19937 randgen(seed);
-	std::uniform_real_distribution<float> unif01(0, 1);
+	thread_local std::mt19937 randgen(seed);
+	std::uniform_real_distribution<double> unif01(0, 1);
 
 
 
@@ -625,9 +642,10 @@ void MagNeuroMod::neuromod()
 
 			if(totalepsprate > 0) {
 				while(epspt < hstep) {
-					erand = unif01(randgen);
 					//erand = para_mrand01(neurodex);
 					//erand = sfmt_genrand_real2(&sfmt);
+					//erand = unif01(randgen);
+					erand = RandomFloat(seed);
 					nepsp++;
 					//epspt = -log(1 - para_mrand01(neurodex)) / totalepsprate + epspt;
 					epspt = -log(1 - erand) / totalepsprate + epspt;
@@ -643,9 +661,10 @@ void MagNeuroMod::neuromod()
 
 			if(totalipsprate > 0) {
 				while(ipspt < hstep) {
-					irand = unif01(randgen);
 					//irand = para_mrand01(neurodex);
 					//irand = sfmt_genrand_real2(&sfmt);
+					//irand = unif01(randgen);
+					irand = RandomFloat(seed);
 					nipsp++;
 					//ipspt = -log(1 - para_mrand01(neurodex)) / totalipsprate + ipspt;
 					ipspt = -log(1 - irand) / totalipsprate + ipspt;
