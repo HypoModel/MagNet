@@ -266,6 +266,7 @@ int MagNetModel::SoundLink(SoundBox *soundbox)
 	
 	return soundbox->spikecount;
 #endif
+	return NULL;
 }
 
 
