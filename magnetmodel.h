@@ -37,9 +37,11 @@ enum {
 	ID_netdiag,
 	ID_ipInfusion,
 	ID_ivInfusion,
+	ID_spikemode,
 	ID_secmode,
 	ID_plasmamode,
-	ID_AHP2mode
+	ID_AHP2mode,
+	ID_secfix
 };
 
 class MagNetModel;
@@ -121,6 +123,7 @@ public:
 	double Egradient, Ethresh;
 	double secExp;
 	double alpha, beta;
+	double secXfix;  // fixed secretion rate for reduced secretion-synthesis test model, 12/5/25
 
 	// Synthesis Parameters         
 	double stimTS, stimTL;
@@ -174,6 +177,7 @@ public:
 	int modmode;    // switch between Oxy and Vaso parameter sets, oxy=0, vaso=1
 	int AHP2mode;   // 0 for basic, 1 for Ca-threshold (PLoS 2012)
 	bool dynostoreflag;  // dynamic store based dynorphin (PLoS 2012)
+	int secfix;
 	
 	// Noise Signal
 	double noimean, noitau, noiamp;
@@ -199,6 +203,7 @@ public:
 	MagNeuroMod *neurothread[1000];  // for storaging data up to 1000 single neurones
 	MagSpikeBox *spikebox;
 	MagSynthBox *synthbox;
+	MagSecBox *secbox;
 	MagNetBox *netbox;
 	MagNeuroDat *neurodata;
 	MagPlasmaMod *plasmathread;
@@ -213,7 +218,8 @@ public:
 	wxMutex *osmomute;
 	int netrate, osmorate, buffrate;
 	int osmo_hstep;
-	int secmode, osmomode, plasmamode;
+	int spikemode, secmode, osmomode, plasmamode;
+	int secfix;
 	unsigned long modseed;
 
 	double netsecX;

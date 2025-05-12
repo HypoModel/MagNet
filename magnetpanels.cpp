@@ -24,6 +24,7 @@ MagNetBox::MagNetBox(MagNetModel *magnetmodel, MainFrame *main, const wxString& 
 	//SetModFlag(ID_singletrans, "singletrans", "Single MagNet", 0); 	
 	//SetModFlag(ID_netdiag, "netdiag", "Net Diagnostic", 0); 
 
+	SetModFlag(ID_spikemode, "spikemode", "Spiking Mod", 1);
 	SetModFlag(ID_secmode, "secmode", "Secretion/Plasma Mod", 0);
 	SetModFlag(ID_plasmamode, "plasmamode", "Plasma Mod", 0);
 	SetModFlag(ID_inputgen, "inputgen", "Input Gen", 0); 
@@ -511,6 +512,7 @@ MagSecBox::MagSecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos
 	InitMenu();
 
 	SetModFlag(ID_diffusion, "diff_flag", "Diffusion", 1); 
+	SetModFlag(ID_secfix, "secfix", "Fixed secretion rate", 0);
 	//SetModFlag(ID_recep, "recepflag", "Dynamic Receptors", 0); 
 
 	// Secretion - Jorge labels
@@ -559,6 +561,7 @@ MagSecBox::MagSecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos
 	paramset.AddCon("VolPlasma", "Plasma (ml)", 8.5, 0.5, 1); // Total amount of plasma in a rat. 8.5ml for a 250g rat. 
 	paramset.AddCon("VolEVF", "EVFluid (ml)", 9.75, 0.5, 2); // Total amount of Extra Cellular Fluid (without plasma) in a rat. From Fabian et. al (1969) VD = 7.3ml/100g
 	paramset.AddCon("secExp", "Sec Exp", 2, 0.1, 2);  // Exponent of the fast [Ca2+], e, when calculating the final secretion.
+	paramset.AddCon("secXfix", "secXfix", 0, 0.001, 5);
 
 	ParamLayout(2);
 

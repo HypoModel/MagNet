@@ -58,6 +58,7 @@ MagNeuroMod::MagNeuroMod(int index, MagNeuron *oxyneuron, MagNetMod *oxynetmod)
 
 	ParamStore *neuroflags = netmod->spikebox->modflags;
 	ParamStore *synthflags = netmod->synthbox->modflags;
+	ParamStore *secflags = netmod->secbox->modflags;
 	ParamStore *netparams = netbox->GetParams();
 
 	modsteps = oxynetmod->runtime * 1000;
@@ -167,6 +168,8 @@ MagNeuroMod::MagNeuroMod(int index, MagNeuron *oxyneuron, MagNetMod *oxynetmod)
 	Pmax = (*secparams)["Pmax"];
 	secExp = (*secparams)["secExp"];
 	plasma_hstep = (*secparams)["plasma_hstep"];
+	secXfix = (*secparams)["secXfix"];
+	secfix = (*secflags)["secfix"];
 
 	// Synthesis
 	//vsynrate = (*synthparams)["vsynrate"];  
@@ -584,177 +587,184 @@ void MagNeuroMod::neuromod()
 		}
 
 
-		// Signal Input     
-		if(noiamp) noisig = noisig + (noimean - noisig) / noitau + noiamp * sqrt(hstep) * gaussian(0, 1); 
-		if(signalmode) {
-			synsig = noisig;
-			epsprate1 = synsig / 1000; 
-			ipsprate1 = epsprate1 * sigIratio; 	
-		}
-		else {
-			synsig = psprate;
-			epsprate1 = 0;
-			ipsprate1 = 0;
-		}
 
-		
-		// rate test
-		//epsprate1 = 0;
-		//ipsprate1 = 0;
-
-
-		// PSP input signal
-		nepsp = 0;
-		nipsp = 0;
-		nepsp1 = 0;
-		nipsp1 = 0;
-		nepsp2 = 0;
-
-		if(inputgen) {
-			nepsp = (neuron->dendinputE)[step];
-			nipsp = (neuron->dendinputI)[step];
-		}
-		else {
-			if(prototype == ramp) {
-				//mod->diagbox->Write("set ramp\n"); 
-				if(step < rampstart) rampinput = rampbase;
-				if(step >= rampstart && step < rampstop) rampinput = rampinit  + (step - rampstart) * rampstep;  // * hstep
-				if(step >= rampstop) rampinput = rampafter;
-				if(rampinput < 0) rampinput = 0;
-				epsprate = rampinput / 1000;
-				synsig = rampinput;
+			// Signal Input     
+			if (noiamp) noisig = noisig + (noimean - noisig) / noitau + noiamp * sqrt(hstep) * gaussian(0, 1);
+			if (signalmode) {
+				synsig = noisig;
+				epsprate1 = synsig / 1000;
+				ipsprate1 = epsprate1 * sigIratio;
 			}
-			if(prototype == rampcurve) {
-				if(step < rampstart) rampinput = rampbase;
-				if(step >= rampstart && step < rampstop) rampinput = rampinit  + rampmax - rampmax * exp(-rampgrad * (step-rampstart));
-				if(step >= rampstop) rampinput = rampafter;
-				if(rampinput < 0) rampinput = 0;
-				epsprate = rampinput / 1000;
-				synsig = rampinput;
+			else {
+				synsig = psprate;
+				epsprate1 = 0;
+				ipsprate1 = 0;
 			}
 
-			// psp rate can be affected by randomly arriving psp but also by stimuli
-			//totalepsprate = (epsprate + IrOsmoPress) * synvar;
-			//totalipsprate = (ipsprate + IrOsmoPress) * pspRatio * synvar;
 
-			totalepsprate = epsprate * synvar;
-			totalipsprate = epsprate * pspRatio * synvar;
+			// rate test
+			//epsprate1 = 0;
+			//ipsprate1 = 0;
 
-			if(totalepsprate > 0) {
-				while(epspt < hstep) {
-					//erand = para_mrand01(neurodex);
-					//erand = sfmt_genrand_real2(&sfmt);
-					//erand = unif01(randgen);
-					erand = RandomFloat(seed);
-					nepsp++;
-					//epspt = -log(1 - para_mrand01(neurodex)) / totalepsprate + epspt;
-					epspt = -log(1 - erand) / totalepsprate + epspt;
-					//epspt = -log(1 - dis(randmt)) / totalepsprate + epspt;
+
+
+		if (netmod->spikemode) {
+
+
+			// PSP input signal
+			nepsp = 0;
+			nipsp = 0;
+			nepsp1 = 0;
+			nipsp1 = 0;
+			nepsp2 = 0;
+
+			if (inputgen) {
+				nepsp = (neuron->dendinputE)[step];
+				nipsp = (neuron->dendinputI)[step];
+			}
+			else {
+				if (prototype == ramp) {
+					//mod->diagbox->Write("set ramp\n"); 
+					if (step < rampstart) rampinput = rampbase;
+					if (step >= rampstart && step < rampstop) rampinput = rampinit + (step - rampstart) * rampstep;  // * hstep
+					if (step >= rampstop) rampinput = rampafter;
+					if (rampinput < 0) rampinput = 0;
+					epsprate = rampinput / 1000;
+					synsig = rampinput;
 				}
-				epspt = epspt - hstep;
-			}
-
-			if(!flagError && epspt > 1000) {
-				mod->diagbox->Write(text.Format("epspt %.10f  erand %.10f\n", epspt, erand));
-				flagError = true;
-			}
-
-			if(totalipsprate > 0) {
-				while(ipspt < hstep) {
-					//irand = para_mrand01(neurodex);
-					//irand = sfmt_genrand_real2(&sfmt);
-					//irand = unif01(randgen);
-					irand = RandomFloat(seed);
-					nipsp++;
-					//ipspt = -log(1 - para_mrand01(neurodex)) / totalipsprate + ipspt;
-					ipspt = -log(1 - irand) / totalipsprate + ipspt;
-					//ipspt = -log(1 - dis(randmt)) / totalipsprate + ipspt;
+				if (prototype == rampcurve) {
+					if (step < rampstart) rampinput = rampbase;
+					if (step >= rampstart && step < rampstop) rampinput = rampinit + rampmax - rampmax * exp(-rampgrad * (step - rampstart));
+					if (step >= rampstop) rampinput = rampafter;
+					if (rampinput < 0) rampinput = 0;
+					epsprate = rampinput / 1000;
+					synsig = rampinput;
 				}
-				ipspt = ipspt - hstep;
+
+				// psp rate can be affected by randomly arriving psp but also by stimuli
+				//totalepsprate = (epsprate + IrOsmoPress) * synvar;
+				//totalipsprate = (ipsprate + IrOsmoPress) * pspRatio * synvar;
+
+				totalepsprate = epsprate * synvar;
+				totalipsprate = epsprate * pspRatio * synvar;
+
+				if (totalepsprate > 0) {
+					while (epspt < hstep) {
+						//erand = para_mrand01(neurodex);
+						//erand = sfmt_genrand_real2(&sfmt);
+						//erand = unif01(randgen);
+						erand = RandomFloat(seed);
+						nepsp++;
+						//epspt = -log(1 - para_mrand01(neurodex)) / totalepsprate + epspt;
+						epspt = -log(1 - erand) / totalepsprate + epspt;
+						//epspt = -log(1 - dis(randmt)) / totalepsprate + epspt;
+					}
+					epspt = epspt - hstep;
+				}
+
+				if (!flagError && epspt > 1000) {
+					mod->diagbox->Write(text.Format("epspt %.10f  erand %.10f\n", epspt, erand));
+					flagError = true;
+				}
+
+				if (totalipsprate > 0) {
+					while (ipspt < hstep) {
+						//irand = para_mrand01(neurodex);
+						//irand = sfmt_genrand_real2(&sfmt);
+						//irand = unif01(randgen);
+						irand = RandomFloat(seed);
+						nipsp++;
+						//ipspt = -log(1 - para_mrand01(neurodex)) / totalipsprate + ipspt;
+						ipspt = -log(1 - irand) / totalipsprate + ipspt;
+						//ipspt = -log(1 - dis(randmt)) / totalipsprate + ipspt;
+					}
+					ipspt = ipspt - hstep;
+				}
+
+
+				if (epsprate1 > 0) {
+					while (epspt1 < hstep) {
+						erand = unif01(randgen);
+						//erand = para_mrand01(neurodex);
+						nepsp1++;
+						epspt1 = -log(1 - erand) / epsprate1 + epspt1;
+					}
+					epspt1 = epspt1 - hstep;
+				}
+
+				if (ipsprate1 > 0) {
+					while (ipspt1 < hstep) {
+						erand = unif01(randgen);
+						//irand = para_mrand01(neurodex);
+						nipsp1++;
+						ipspt1 = -log(1 - irand) / ipsprate1 + ipspt1;
+					}
+					ipspt1 = ipspt1 - hstep;
+				}
+
+				if (epsprate2 > 0) {
+					while (epspt2 < hstep) {
+						erand = unif01(randgen);
+						//erand = para_mrand01(neurodex);
+						//erand = sfmt_genrand_real2(&sfmt);
+						nepsp2++;
+						epspt2 = -log(1 - erand) / epsprate2 + epspt2;
+					}
+					epspt2 = epspt2 - hstep;
+				}
+
 			}
 
-			
-			if(epsprate1 > 0) {
-				while(epspt1 < hstep) {
-					erand = unif01(randgen);
-					//erand = para_mrand01(neurodex);
-					nepsp1++;
-					epspt1 = -log(1 - erand) / epsprate1 + epspt1;
-				}
-				epspt1 = epspt1 - hstep;
+			inputPSP = nepsp * epspmag - nipsp * ipspmag;
+			inputPSP1 = nepsp1 * epspmag - nipsp1 * ipspmag;
+
+			// Input dynamics
+			if (epspmag2) {
+				if (epspsynchflag) nepsp2 = nepsp;   // synchronous AMPA and NMDA EPSPs
+				inputPSP2 = inputPSP2 - (inputPSP2 * tauPSP2) * hstep + nepsp2 * epspmag2;
 			}
 
-			if(ipsprate1 > 0) {
-				while(ipspt1 < hstep) {
-					erand = unif01(randgen);
-					//irand = para_mrand01(neurodex);
-					nipsp1++;
-					ipspt1 = -log(1 - irand) / ipsprate1 + ipspt1;
-				}
-				ipspt1 = ipspt1 - hstep;
-			}
+			// Spiking model
 
-			if(epsprate2 > 0) {
-				while(epspt2 < hstep) {
-					erand = unif01(randgen);
-					//erand = para_mrand01(neurodex);
-					//erand = sfmt_genrand_real2(&sfmt);
-					nepsp2++;
-					epspt2 = -log(1 - erand) / epsprate2 + epspt2;
-				}
-				epspt2 = epspt2 - hstep;
-			}
-			
+			//pspsig = pspsig + (inputPSP2 * tauPSP2 - pspsig * tauMem) * hstep + inputPSP + inputPSP1;
+			pspsig = pspsig + (inputPSP2 * tauPSP2 - pspsig * tauMem) + inputPSP + inputPSP1;
+
+			//tHAP = tHAP - (tHAP * tauHAP) * hstep;
+			//tDAP = tDAP - (tDAP * tauDAP) * hstep;
+			//tAHP = tAHP - (tAHP * tauAHP) * hstep;
+			//tAHP2 = tAHP2 - (tAHP2 * tauAHP2) * hstep;     // currently redundant hstep removed for speed optimization
+
+			tHAP = tHAP - (tHAP * tauHAP);
+			tDAP = tDAP - (tDAP * tauDAP);
+			tAHP = tAHP - (tAHP * tauAHP);
+			tAHP2 = tAHP2 - (tAHP2 * tauAHP2);
+
+			tCa = tCa - (tCa - Ca_rest) * tauCa;
+			tDyno = tDyno - tDyno * tauDyno;
+
+			//tdendCa = tdendCa - hstep * tdendCa * taudendCa;
+			tdendCa = tdendCa - tdendCa * taudendCa;
+			storeDyno = storeDyno + kstoreDyno * tdendCa;  // - hstep * neuron->storeDyno / taustoreDyno;
+			if (storeDyno > 10) storeDyno = 10;
+
+			// Osmosensitive Depolarisation
+			//inputOsmo = Osmo * gOsmo;
+			inputOsmo = gOsmo;
+
+			// IKleak
+
+			KLact = vox_tanh((tCa - Ca_rest - tDyno) / ka);
+			//IKL = gKL * (1 - KLact);
+			IKL = gKL - gKL * KLact;
+
+			V = Vrest + pspsig + inputOsmo - tHAP - tAHP - tAHP2 + tDAP - IKL;
+
 		}
-
-		inputPSP = nepsp * epspmag - nipsp * ipspmag;
-		inputPSP1 = nepsp1 * epspmag - nipsp1 * ipspmag;
-
-		// Input dynamics
-		if(epspmag2) {
-			if(epspsynchflag) nepsp2 = nepsp;   // synchronous AMPA and NMDA EPSPs
-			inputPSP2 = inputPSP2 - (inputPSP2 * tauPSP2) * hstep + nepsp2 * epspmag2;
-		}
-
-		// Spiking model
-		
-		//pspsig = pspsig + (inputPSP2 * tauPSP2 - pspsig * tauMem) * hstep + inputPSP + inputPSP1;
-		pspsig = pspsig + (inputPSP2 * tauPSP2 - pspsig * tauMem) + inputPSP + inputPSP1;
-
-		//tHAP = tHAP - (tHAP * tauHAP) * hstep;
-		//tDAP = tDAP - (tDAP * tauDAP) * hstep;
-		//tAHP = tAHP - (tAHP * tauAHP) * hstep;
-		//tAHP2 = tAHP2 - (tAHP2 * tauAHP2) * hstep;     // currently redundant hstep removed for speed optimization
-
-		tHAP = tHAP - (tHAP * tauHAP);
-		tDAP = tDAP - (tDAP * tauDAP);
-		tAHP = tAHP - (tAHP * tauAHP);
-		tAHP2 = tAHP2 - (tAHP2 * tauAHP2);
-
-		tCa = tCa - (tCa - Ca_rest) * tauCa;
-		tDyno = tDyno - tDyno * tauDyno;
-
-		//tdendCa = tdendCa - hstep * tdendCa * taudendCa;
-		tdendCa = tdendCa - tdendCa * taudendCa;
-		storeDyno = storeDyno + kstoreDyno * tdendCa;  // - hstep * neuron->storeDyno / taustoreDyno;
-		if(storeDyno > 10) storeDyno = 10;   
-
-		// Osmosensitive Depolarisation
-		//inputOsmo = Osmo * gOsmo;
-		inputOsmo = gOsmo;
-
-		// IKleak
-
-		KLact = vox_tanh((tCa - Ca_rest - tDyno) / ka);  
-		//IKL = gKL * (1 - KLact);
-		IKL = gKL - gKL * KLact;
-
-		V = Vrest + pspsig + inputOsmo - tHAP - tAHP - tAHP2 + tDAP - IKL; 
 
 
 		// Secretion model
 
-		if(netmod->secmode) {
+		if(netmod->secmode && !netmod->secfix) {
 			// Secretion dynamics
 			//tB = tB - (tB * tauB) * hstep;   // broadening
 			//tE = tE - (tE * tauE) * hstep;   // fast Ca2+
@@ -784,14 +794,11 @@ void MagNeuroMod::neuromod()
 			if(secExp == 3) secX = tE * tE * tE * alpha * tP;             // fixed vaso
 			if(secExp == 2) secX = tE * tE * alpha * tP;                    // fixed oxy
 
-			// Reserve Store (tR) and Releasable Pool (tP)
-			if(tP < Pmax) fillP = beta * tR / Rmax; 
-			else fillP = 0;
-
-			tP = tP - secX + fillP;
-
-			secBinX += secX;
+			//secBinX += secX;           // removed 12/5/25, appears redundant
 		}
+
+		if(netmod->secfix) secX = secXfix;
+	
 
 		// Plasma model
 
@@ -873,6 +880,13 @@ void MagNeuroMod::neuromod()
 			if(step/synthrecrate >= synthdel) fillR = rateSR * synthrec[step/synthrecrate - synthdel] * 0.001 * 0.03;
 			else fillR = rateSR * synthrec[0] * 0.001 * 0.03;
 		}
+
+
+		// Reserve Store (tR) and Releasable Pool (tP)     - 12/5/25 moved down from secretion model section
+		if (tP < Pmax) fillP = beta * tR / Rmax;
+		else fillP = 0;
+
+		tP = tP - secX + fillP;
 
 		tR = tR + fillR - fillP;    // Reserve store - linking synthesis to secretion model
 

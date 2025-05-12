@@ -21,6 +21,7 @@ MagNetMod::MagNetMod(MagNetModel *oxynetmod)
 	mod = oxynetmod;
 	spikebox = mod->spikebox;
 	synthbox = mod->synthbox;
+	secbox = mod->secbox;
 	netbox = mod->netbox;
 	magpop = mod->magpop;
 
@@ -203,7 +204,7 @@ void MagNetMod::Initialise()
 	wxString text, tag[10];
 
 	netparams = mod->netbox->GetParams();
-		
+
 	netflags = mod->netbox->modflags;
 
 	runtime = int((*netparams)["runtime"]);
@@ -217,7 +218,9 @@ void MagNetMod::Initialise()
 
 	mod->neurodatabox->neurocount = numneurons;
 
-	secmode = (*netflags)["secmode"];    // run secretion and plasma models if secmode = 1
+	spikemode = (*netflags)["spikemode"];    // run spiking model if spikemode = 1
+	secmode = (*netflags)["secmode"];   // run secretion and plasma models if secmode = 1
+	//secfix = (*netflags)["secfix"];
 	plasmamode = (*netflags)["plasmamode"];   
 
 	ParamStore *neuroflags = mod->spikebox->modflags;
