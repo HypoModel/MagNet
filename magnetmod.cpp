@@ -24,6 +24,7 @@ MagNetMod::MagNetMod(MagNetModel *oxynetmod)
 	secbox = mod->secbox;
 	netbox = mod->netbox;
 	magpop = mod->magpop;
+	magpop->mod = mod;
 
 	//neurons = mod->neurons;
 	neurodata = mod->neurodata;

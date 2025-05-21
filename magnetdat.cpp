@@ -158,6 +158,8 @@ void MagPop::PopSum()
 
 	popfreq = 0;
 
+	//DiagWrite("")
+
 	// Sum release and spike rate over population
 	for(i=0; i<numneurons; i++) {
 		//vasomod->currvaso->neurocalc(&(neurons[i]));

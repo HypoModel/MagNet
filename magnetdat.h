@@ -72,6 +72,7 @@ public:
 //
 class MagPop{
 public:
+	MagNetModel *mod;
 	int runtime;
 	int numneurons;
 	int numspikes;
