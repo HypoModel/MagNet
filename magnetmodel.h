@@ -11,7 +11,7 @@
 *		- "MagNetDat"    --->   Just getting parameters for the Network (see magnetdat.cpp)
 *		- Boxes for the network and the single neuron starting parameters  (see magnetpanels.cpp)
 *		- "MagNeuroMod : public wxThread"   --->  Thread for working with a single neuron  (see magneuromod.cpp)
-*		- "MagNetMod : public ModThread"   --->  class to work with threats, in this case with the single neuron threads defined by MagNeuroMod  (see magnetmod.cpp)
+*		- "MagNetMod : public ModThread"   --->  class to work with threads, in this case with the single neuron threads defined by MagNeuroMod  (see magnetmod.cpp)
 *		- "MagNetModel : public Model"   --->  to run the network threads and coordinate the graphs, boxes and data asociated  (see magnetmodel.cpp)
 *		
 */
