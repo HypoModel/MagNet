@@ -12,7 +12,7 @@
 #ifndef MAGNETDAT_H
 #define MAGNETDAT_H
 
-#include <hypomodel.h>
+#include "hypomodel.h"
 
 
 // 'MagNeuron' single magnocellular neuron class derived from NeuroDat
