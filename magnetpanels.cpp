@@ -759,7 +759,7 @@ void MagNetGridBox::OnPlot(wxCommandEvent& event)
 
 
 MagNetProtoBox::MagNetProtoBox(MagNetMod *magnetmod, const wxString& title, const wxPoint& pos, const wxSize& size)
-	: ParamBox(mod, title, pos, size, "PROTO", 1, 1)
+	: ParamBox(magnetmod, title, pos, size, "PROTO", 1, 1)
 {
 	int pnum, inpnum, rampnum;
 	int pulsenum0, pulsenum1, rampnum0, rampnum1;
