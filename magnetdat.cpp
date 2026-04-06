@@ -9,7 +9,7 @@
 */
 
 
-#include "magnetmodel.h"
+#include "magnetmod.h"
 
 
 MagNeuron::MagNeuron()

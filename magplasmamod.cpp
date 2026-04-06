@@ -11,10 +11,10 @@
 */
 
 
-#include "magnetmodel.h"
+#include "magnetmod.h"
 
 
-MagPlasmaMod::MagPlasmaMod(MagNetMod *oxynetmod)
+MagPlasmaMod::MagPlasmaMod(MagNetModel *oxynetmod)
 	: wxThread(wxTHREAD_JOINABLE)
 {
 	netmod = oxynetmod;

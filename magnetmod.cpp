@@ -1,303 +1,456 @@
 /*
 *  magnetmod.cpp
-*  HypoModel
 *
 *  Created by Duncan MacGregor
 *  University of Edinburgh 2022
 *  Released under MIT license, see https://opensource.org/licenses/MIT
 *
-*
 */
 
 
-#include "magnetmodel.h"
-
-//wxDECLARE_EVENT(wxEVT_COMMAND_MODTHREAD_COMPLETED, wxThreadEvent);
 
 
-MagNetMod::MagNetMod(MagNetModel *oxynetmod)
-	: ModThread(oxynetmod->modbox, oxynetmod->mainwin), neurons(oxynetmod->modneurons) 
+#include "magnetmod.h"
+
+
+MagNetDat::MagNetDat()
 {
-	mod = oxynetmod;
-	spikebox = mod->spikebox;
-	synthbox = mod->synthbox;
-	secbox = mod->secbox;
-	netbox = mod->netbox;
-	magpop = mod->magpop;
-	//magpop->mod = mod;
-
-	//neurons = mod->neurons;
-	neurodata = mod->neurodata;
-	initflag = false;
-
-	//Protocol Parameters
-	rampstart = new int[mod->celltypes];
-	rampstop = new int[mod->celltypes];
-	rampbase = new double[mod->celltypes];
-	rampinit = new double[mod->celltypes];
-	rampstep = new double[mod->celltypes];
-	rampinput = new double[mod->celltypes];
-	rampafter = new double[mod->celltypes];
 }
 
 
-void *MagNetMod::Entry()
+MagNetMod::MagNetMod(int type, wxString name, HypoMain *main)
+: NeuroMod(type, name, main)
 {
 	int i;
-	wxString text;
 
-	diagmute = new wxMutex;
-	secmute = new wxMutex;
-	osmomute = new wxMutex;
-    
-    //wxCommandEvent endrunevent(wxEVT_COMMAND_TEXT_UPDATED, ID_EndRun);
+	path = "MagNet";
+	oldhist = false;
+    projmode = true;
 
-	Initialise();        // Read in parameters
+	storesize = 100000;
+	diagbox = mainwin->diagbox;
 
-	// Generate non-independent PSP counts
-	if((*netflags)["inputgen"]) {
-		mod->netbox->SetStatus("InputGen...\n");
-		InputGen();                                   
-		mod->netbox->SetStatus("InputGen...OK\n");
+	mainwin->SetMinSize(wxSize(470, 300));
+	mainwin->xstretch = 0;
+	xmin = -1000000;
+
+	datsample = 1000;    // recording rate
+	popscale = 9000;     // secretion scaling from single neuron to in vivo population
+
+	netready = false;
+	modneurons.resize(200);
+	modneurons_max = 200;
+
+	currmodneuron = new SpikeDat();
+	currmodneuron->BurstInit();
+	neuroindex = 0;
+
+	neurodata = new MagNeuroDat();
+
+	netdata = new MagNetDat();
+	magpop = new MagPop();
+	netdat = new SpikeDat();
+	netneuron = new SpikeDat();
+
+	// Diagnostic long spike record
+	//neurons[0].diagstore();
+	//currmodneuron->maxspikes = 1000000;
+	//currmodneuron->times.resize(1000000);
+	//netneuron->maxspikes = 1000000;
+	//netneuron->times.resize(1000000);
+
+	// Grid Plot Data
+	for(i=0; i<10; i++) {
+		gridplot[i].setsize(1000);
+		gridplotx[i].setsize(1000);
+		gridploterr[i].setsize(1000);
 	}
 
-	if((*netflags)["realtime"]) {}
+	// Protocol Data
+	rangecount = 10;
+	rangedatamax = 1000;
+	for(i=0; i<rangecount; i++) rangedata[i].setsize(rangedatamax);
+	rangeref.setsize(rangedatamax);   // common X values for plotting range protocol data
+	rangeindex = 0;
 
-	if(prototype == range) RunRange();
-	else RunNet();            // Generate and run network and cell threads
+	celltypes = 1;    // reserve for possible future multiple cell types as in VMNNet
+
+	// Initialise neuro select data
+	magpop->OxySecretion = &modneurons[0].Secretion;
+	magpop->OxyPlasma = &modneurons[0].Plasma;
 	
-	//magpop->PopSum();
-	SecretionAnalysis();
-	//mod->diagbox->Write(text.Format("Pop Sec  Mean %.4f  IoD 1s bin = %.4f\n\n", magpop->secmean, magpop->secIoD));
-	//mod->diagbox->Write(text.Format("Pop Sec  Mean %.4f  IoD 4s bin = %.4f\n\n", magpop->secmean_4s, magpop->secIoD_4s));
+	gridbox = new MagNetGridBox(this, "Data Grid", wxPoint(0, 0), wxSize(320, 500), 100, 20);
+	neurobox = new NeuroBox(this, "Spike Data", wxPoint(0, 0), wxSize(320, 500));
+	secbox = new MagSecBox(this, "Secretion and Diffusion", wxPoint(0, 0), wxSize(320, 500));
+	dendbox = new MagDendBox(this, "Dendritic", wxPoint(0, 0), wxSize(320, 500));
+	neurodatabox = new MagNeuroDataBox(this, "Model Neuron Data", wxPoint(0, 0), wxSize(320, 500));
+	signalbox = new MagSignalBox(this, "Signal Box", wxPoint(0, 300), wxSize(400, 500));
+	protobox = new MagNetProtoBox(this, "Protocol", wxPoint(0, 0), wxSize(320, 500));
+	synthbox = new MagSynthBox(this, "Synthesis", wxPoint(0, 0), wxSize(320, 500));
+	genbox = new MagGenBox(this, "Neuron Generation", wxPoint(0, 0), wxSize(320, 500));
+
+	// Panel control boxes, must come last to link panel buttons
+	spikebox = new MagSpikeBox(this, "Spiking", wxPoint(0, 0), wxSize(320, 500));
+	netbox = new MagNetBox(this, mainwin, "Hypo Net Model", wxPoint(0, 0), wxSize(320, 500));
+
+	// link mod owned boxes
+	mainwin->neurobox = neurobox;
+	mainwin->gridbox = gridbox;
+
+	// general HypoMod modules
+	mainwin->BurstModule(this, currmodneuron); 
+	burstbox = mainwin->burstbox;
+
+	mainwin->PlotModule(this); 
+	plotbox = mainwin->plotbox;
+
+	//oxynetbox->canclose = false;
+	dispbox = netbox;
+
+	// Cell data NeuroDat store vector and view SpikeDat
+	int numview = 2;
+	viewcell.resize(numview); 
+	viewcell[0].BurstInit();
+	celldata.resize(10);
+
+	// NeuroBox panel for multi cell data import, analysis and fitting
+	neurobox->textgrid = gridbox->textgrid[0];
+	neurobox->gridbox = gridbox;
+	neurobox->burstbox = mainwin->burstbox;
+
+	// Cell data linking
+	neurobox->cellpanel->SetData(&viewcell[0], &celldata);
+
+	// Mod data linking
+	neurobox->AddModSpikePanel(currmodneuron, (std::vector<NeuroDat>*)&modneurons);
+
+	// GridBox linking and set up
+	gridbox->celldata = &celldata;
+	gridbox->neurobox = neurobox;
+
+	gridbox->NeuroButton();
+	gridbox->PlotButton();
+	gridbox->ParamButton();
 
 
-	// Hetero Pop Analysis    22/2/13
+#ifdef HYPOSOUND
+	mainwin->SoundModule(this);
+	soundbox = mainwin->soundbox;
+#endif
 
-	double synvar, neurate;
-	int syndist[1000];
-	int ratedist[1000];
+	//(*toolflags)["spikebox"] = 1;		// Select universal model tools
+	//mainwin->ToolLoad(this);				// Load universal model tools
 
-	for(i=0; i<1000; i++) {
-		syndist[i] = 0;
-		ratedist[i] = 0;
+	modtools.AddBox(netbox, true);
+	modtools.AddBox(spikebox, true);
+	modtools.AddBox(secbox, true);
+	modtools.AddBox(dendbox, true);
+	modtools.AddBox(neurodatabox, true);
+	modtools.AddBox(gridbox, true);
+	modtools.AddBox(neurobox, true);
+	modtools.AddBox(signalbox, true);
+	modtools.AddBox(protobox, true);
+	modtools.AddBox(synthbox, true);
+	modtools.AddBox(genbox, true);
+    #ifdef HYPOSOUND
+    modtools.AddBox(soundbox, true);
+    #endif
+	modbox = netbox;
+
+	//ModLoad();
+	/*
+	for(i=0; i<modtools.numtools; i++) {
+		modtools.box[i]->ReSize();
+		modtools.box[i]->Show(modtools.box[i]->visible);
+	}*/
+	
+	netbox->ParamLoad("default");
+	graphload = false;
+
+	gsync = 0;
+
+	//oxynetbox->Show(true);
+	GraphData();
+
+    Connect(wxID_ANY, EVT_MODTHREAD_COMPLETED, wxThreadEventHandler(MagNetMod::OnModThreadCompletion));
+}
+
+
+// ParamScan() reads model parameters from textgrid into parambox, parameters across columns
+// tags in row 1, values in row 2
+
+void MagNetMod::ParamScan()
+{
+	int i, paramcount;
+	TextGrid *paramgrid;
+	wxString text, paramtag;
+	double paramval;
+	ParamCon *paramcon;
+
+	// Link panel data from GridBox
+	if(gridbox->paramgrid) paramgrid = gridbox->paramgrid;
+	else {
+		gridbox->WriteVDU("No param data found\n");
+		return;
 	}
 
-	for(i=0; i<numneurons; i++) {
-		synvar = (*(neurons[i].spikeparams))["synvar"];
-		//mainwin->diagbox->Write(text.Format("MagNetMod neuron %d synvar %.4f\n", i, synvar));
-		syndist[(int)(synvar*200)/10]++;
-		//neurate = neurons[i].ratemean[0];
-		neurate = neurons[i].spikecount2 / runtime;
-		//ratedist[(int)(neurate*50)/5]++;
-		ratedist[(int)(neurate*50)/10]++;   // 0.2 spikes/s bins
-	} 
+	paramcount = 0;
 
-	for(i=0; i<1000; i++) {
-		mod->datahistx[0][i] = i * 0.05;
-		mod->datahist[0][i] = syndist[i];
-		//mod->datahist[0][i] = 100;
-		mod->datahistx[1][i] = i * 0.2;
-		mod->datahist[1][i] = ratedist[i];
-	}
+	// reads first parameter tag
+	paramtag = paramgrid->GetCell(1, 0);
+	paramtag.Trim();
 
-	// Clean Up
-	delete diagmute;
-	delete secmute;
-	delete osmomute;
-
-	 if((*netflags)["inputgen"]) {
-		for(int i=0; i<numneurons; i++) {
-			delete[] neurons[i].dendinputE;
-			delete[] neurons[i].dendinputI;
+	while(!paramtag.IsEmpty()) {
+		paramcon = spikebox->paramset.GetCon(paramtag);
+		// check valid parameter tag
+		if(!paramcon) diagbox->Write(text.Format("Param %s tag not found\n", paramtag));	
+		else {
+			// check and read valid parameter value
+			if(!paramgrid->CheckDouble(paramgrid->selectrow, paramcount, &paramval)) diagbox->Write(text.Format("Param %s bad param value\n", paramtag));
+			else paramcon->SetValue(paramval);
 		}
+		// read next parameter tag
+		paramcount++;
+		paramtag = paramgrid->GetCell(1, paramcount);
+		paramtag.Trim();		
 	}
+	gridbox->WriteVDU(text.Format("Parameters read OK\n"));
+}
 
-	delete[] rampstart;
-	delete[] rampstop;
-	delete[] rampbase;
-	delete[] rampinit;
-	delete[] rampstep;
-	delete[] rampinput;
-	delete[] rampafter;
 
-	mod->netbox->SetStatus("");
+void MagNetMod::OnModThreadCompletion(wxThreadEvent&)
+{
+    runmute->Lock();
+    runflag = 0;
+    runmute->Unlock();
+    mainwin->scalebox->GraphUpdate();
     
-    wxQueueEvent(mod, new wxThreadEvent(EVT_MODTHREAD_COMPLETED));
-    //mod->AddPendingEvent(endrunevent);
+    diagbox->Write("Model thread OK\n\n");
+}
 
-    //mod->diagbox->Write("Model thread OK\n\n");
+
+void MagNetMod::OnEndRun(wxCommandEvent&)
+{
+    if(mainwin->diagnostic) diagbox->Write("Model Run Finished\n");
     //mainwin->scalebox->GraphUpdate();
-    //mod->runflag = false;
-    
+    //runflag = 0;
+}
+
+
+void MagNetMod::ModClose()
+{
+	mainwin->burstbox->Store();
+	neurobox->Store();
+#ifdef HYPOSOUND
+	soundbox->Store();
+#endif
+}
+
+
+void MagNetMod::SoundOn()
+{
+	(*graphwin)[0].Highlight(50);
+}
+
+
+int MagNetMod::SoundLink(SoundBox *soundbox)
+{
+#ifdef HYPOSOUND
+	if(currmodneuron->spikecount) {
+		soundbox->SetSpikeData(currmodneuron);
+		soundbox->SetWaveData(&neurodata->Ca);
+	}
+	else if(viewcell[0].spikecount) {
+		soundbox->SetSpikeData(&viewcell[0]);	
+	}
+	
+	return soundbox->spikecount;
+#endif
 	return NULL;
 }
 
 
-void MagNetMod::RunRange()
+void MagNetMod::RangePlot(TextGrid *textgrid)
 {
 	int i, count;
-	int rangestart, rangestop, rangestep;
-	int rangeindex;
-	int inputrate;
 	wxString text;
-	int secstart, secstop;
-	int minstart, minstop;
-	double plasmasum, plasmamean;
-	double synthsum, synthmean;
-	double secsum, secmean;
-	double mRNAsum, mRNAmean;
-	int startrow = 1;
 
-	ParamStore *protoparams = mod->protobox->GetParams();
-	rangestart = (*protoparams)["rangestart"];
-	rangestop = (*protoparams)["rangestop"];
-	rangestep = (*protoparams)["rangestep"];
-	rangeindex = (*protoparams)["rangedata"];
-
-	mainwin->diagbox->Write(text.Format("Runrange %d neurons\n", numneurons));
-
-	count = 0;
-	for(inputrate = rangestart; inputrate<=rangestop; inputrate+=rangestep) {
-		mod->protobox->currentrange->SetLabel(text.Format("%d", inputrate));    // Display current range parameter
-		for(i=0; i<numneurons; i++) (*(neurons[i].spikeparams))["psprate"] = inputrate;  // copy range parameter to neurons
-		RunNet();
-		// Store plot data
-		mod->rangeref[count] = inputrate;
-		mod->rangedata[rangeindex][count] = magpop->popfreq;
-		// Measure mean plasma
-		secstart = 43200;   // 2000;
-		secstop = 86400; // 4000;
-		minstart = secstart / 60;
-		minstop = secstop / 60;
-
-		plasmasum = 0;
-		for(i=secstart; i<secstop; i++) plasmasum += magpop->OxyPlasmaNet[i];
-		plasmamean = plasmasum / (secstop - secstart);
-		mod->rangedata[rangeindex+1][count] = plasmamean;
-
-		secsum = 0;
-		for(i=minstart; i<minstop; i++) secsum += magpop->netsecLong[i];
-		secmean = secsum / (minstop - minstart);
-		mod->rangedata[rangeindex+2][count] = secmean;
-
-		synthsum = 0;
-		for(i=minstart; i<minstop; i++) synthsum += magpop->synthratesumLong[i];
-		synthmean = synthsum / (minstop - minstart);
-		mod->rangedata[rangeindex+3][count] = synthmean;
-
-		mod->gridbox->textgrid[0]->SetCell(count+startrow, 0, text.Format("%.0f", mod->rangeref[count]));
-		mod->gridbox->textgrid[0]->SetCell(count+startrow, rangeindex+1, text.Format("%.2f", mod->rangedata[rangeindex][count]));
-		mod->gridbox->textgrid[0]->SetCell(count+startrow, rangeindex+2, text.Format("%.2f", mod->rangedata[rangeindex+1][count]));
-		mod->gridbox->textgrid[0]->SetCell(count+startrow, rangeindex+3, text.Format("%.2f", mod->rangedata[rangeindex+2][count]));
-		mod->gridbox->textgrid[0]->SetCell(count+startrow, rangeindex+4, text.Format("%.2f", mod->rangedata[rangeindex+3][count]));
-		count++;
+	count = gridbox->ColumnData(0, &rangeref);
+	for(i=0; i<rangecount; i++) {
+		gridbox->ColumnData(i+1, &rangedata[i]);
+		graphbase->GetGraph(text.Format("rangedata%d", i))->xcount = count;
 	}
 
-	mod->graphbase->GetGraph(text.Format("rangedata%d", rangeindex))->xcount = count;   
+	mainwin->scalebox->GraphUpdate();
 }
 
 
-void MagNetMod::Initialise()
+void MagNetMod::ScaleConsoleBelow(ScaleBox *scalebox, int condex)
+{
+	int ostype = scalebox->ostype;
+	wxBoxSizer *vbox = scalebox->consolebox[condex];
+	//ToolButton *spikesbutton, *ratebutton;
+
+	scalebox->buttonheight = 20;
+
+	if(condex == 0) {
+		wxBoxSizer *resbox = new wxBoxSizer(wxHORIZONTAL); 
+		wxBoxSizer *modebox = new wxBoxSizer(wxHORIZONTAL); 
+
+		if(ostype == Mac) {
+			//scalebox->ScaleButton(ID_spikes, "Spike", 40, resbox);
+			scalebox->GraphButton("spikeres", 0, ID_spikes, "Spikes", 40, resbox); 
+			//scalebox->ScaleButton(ID_rateres, "Rate", 40, resbox);
+			scalebox->GraphButton("rateres", 0, ID_rateres, "Rate", 40, resbox)->linkID = ID_spikes; 
+			//scalebox->GraphButton("nettog", 0, ID_net, "Net", 43, modebox);
+			scalebox->databutton = scalebox->ScaleButton(ID_data, "Disp", 43, modebox);
+		}
+		else {
+			//scalebox->ScaleButton(ID_spikes, "Spikes", 37, resbox); 
+			scalebox->GraphButton("spikeres", 0, ID_spikes, "Spikes", 37, resbox); 
+			resbox->AddSpacer(2);
+			//scalebox->ScaleButton(ID_rateres, "Rate", 37, resbox); 
+			scalebox->GraphButton("rateres", 0, ID_rateres, "Rate", 37, resbox, 3)->linkID = ID_spikes; 
+			//scalebox->GraphButton("nettog", 0, ID_net, "Net", 37, modebox);
+			scalebox->databutton = scalebox->ScaleButton(ID_data, "All", 43, modebox);
+		}
+		vbox->Add(resbox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+		vbox->Add(modebox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+	}
+}
+
+
+void MagNetMod::ScaleConsoleAbove(ScaleBox *scalebox, int condex)
+{
+	int ostype = scalebox->ostype;
+	wxBoxSizer *vbox = scalebox->consolebox[condex];
+    
+    scalebox->buttonheight = 20;
+
+	/*if(condex == 0) {
+		wxBoxSizer *resbox = new wxBoxSizer(wxHORIZONTAL); 
+		wxBoxSizer *modebox = new wxBoxSizer(wxHORIZONTAL); 
+
+		if(ostype == Mac) {
+			scalebox->ScaleButton(ID_spikes, "Spike", 40, resbox);
+			scalebox->ScaleButton(ID_rateres, "Rate", 40, resbox);
+			scalebox->GraphButton("nettog", 0, ID_net, "Net", 43, modebox);
+		}
+		else {
+			scalebox->ScaleButton(ID_spikes, "Spikes", 37, resbox); 
+			resbox->AddSpacer(2);
+			scalebox->ScaleButton(ID_rateres, "Rate", 37, resbox); 
+			scalebox->GraphButton("nettog", 0, ID_net, "Net", 37, modebox);
+		}
+		vbox->Add(resbox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+		vbox->Add(modebox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+	}*/
+
+
+	if(condex == 2) {
+		wxBoxSizer *binbox = new wxBoxSizer(wxHORIZONTAL); 
+		wxBoxSizer *filtbox = new wxBoxSizer(wxHORIZONTAL); 
+		if(ostype == Mac) {
+			scalebox->GraphButton("hazmode1", 0, ID_histhaz1, "Hist / Haz", 70, vbox);
+			scalebox->GraphButton("binrestog1", 0, ID_binres1, "Bin", 45, binbox);
+			scalebox->GraphButton("normtog", 0, ID_norm, "Norm", 45, binbox);
+			scalebox->burstbutton = scalebox->GraphButton("burstmode", 0, ID_burst, "Burst", 45, filtbox);
+			scalebox->selectbutton = scalebox->GraphButton("selectmode", 0, ID_select, "Select", 45, filtbox);
+		}
+		else {
+			scalebox->GraphButton("hazmode1", 0, ID_histhaz1, "Hist / Haz", 54, vbox);
+			scalebox->GraphButton("binrestog1", 0, ID_binres1, "Bin Res", 43, binbox);
+			scalebox->GraphButton("normtog", 0, ID_norm, "Norm", 35, binbox);
+			scalebox->burstbutton = scalebox->GraphButton("burstmode", 0, ID_burst, "Burst", 40, filtbox);
+			scalebox->selectbutton = scalebox->GraphButton("selectmode", 0, ID_select, "Select", 40, filtbox);
+			//scalebox->GraphButton("burstmode", 0, ID_allburst, "All / Select", 70, vbox, 1);
+		}	
+		scalebox->burstbutton->linkID = ID_select;
+		scalebox->selectbutton->linkID = ID_burst;
+		vbox->Add(binbox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+		vbox->Add(filtbox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+	}
+
+	if(condex == 3) {
+		wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
+		if(ostype == Mac) {
+			scalebox->ScaleButton(ID_overlay, "Ovl", 43, hbox);
+			scalebox->ScaleButton(ID_position, "Pos", 43, hbox);
+		}
+		else {
+			scalebox->ScaleButton(ID_overlay, "Over", 35, hbox);
+			hbox->AddSpacer(2);
+			scalebox->ScaleButton(ID_position, "Pos", 35, hbox);
+		}
+		vbox->Add(hbox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+		scalebox->overset.Add(ID_overlay, ID_position, 2, 3);
+	}
+
+	if(condex == 5) {
+		wxBoxSizer *hbox = new wxBoxSizer(wxHORIZONTAL);
+		if(ostype == Mac) {
+			scalebox->ScaleButton(ID_overlay2, "Ovl", 43, hbox);
+			scalebox->ScaleButton(ID_position2, "Pos", 43, hbox);
+		}
+		else {
+			scalebox->ScaleButton(ID_overlay2, "Over", 35, hbox);
+			hbox->AddSpacer(2);
+			scalebox->ScaleButton(ID_position2, "Pos", 35, hbox);
+		}
+		vbox->Add(hbox, 0, wxALIGN_CENTRE_HORIZONTAL|wxALIGN_CENTRE_VERTICAL|wxALL, 0);
+		scalebox->overset.Add(ID_overlay2, ID_position2, 4, 5);
+	}
+}
+
+
+void MagNetMod::StoreClear()
 {
 	int i;
-	int maxtime = 10000;
-	wxString text, tag[10];
-
-	netparams = mod->netbox->GetParams();
-
-	netflags = mod->netbox->modflags;
-
-	runtime = int((*netparams)["runtime"]);
-	numneurons = int((*netparams)["numneurons"]);
-	netrate = int((*netparams)["netrate"]);
-	osmorate = int((*netparams)["osmorate"]);
-	osmo_hstep = int((*netparams)["osmo_hstep"]);
-	buffrate = int((*netparams)["buffrate"]);
-	//modseed = (*netparams)["modseed"];
-	mod->popscale = (*netparams)["popscale"];
-
-	mod->neurodatabox->neurocount = numneurons;
-
-	spikemode = (*netflags)["spikemode"];    // run spiking model if spikemode = 1
-	secmode = (*netflags)["secmode"];   // run secretion and plasma models if secmode = 1
-	//secfix = (*netflags)["secfix"];
-	plasmamode = (*netflags)["plasmamode"];   
-
-	ParamStore *neuroflags = mod->spikebox->modflags;
-	if((*neuroflags)["ipInfusionflag"] || (*neuroflags)["ivInfusionflag"]) osmomode = 1;
-	else osmomode = 0;
 
 	/*
+	for(i=0; i<storesize; i++) {
+		oxynetdata->water[i] = 0;
+	}*/
+}
+
+
+void MagNetMod::RunModel()
+{
+	if(mainwin->diagnostic) mainwin->SetStatusText("MagNet Model Run");
+
+	ParamStore *netparams = netbox->GetParams();
+	numneurons = (*netparams)["numneurons"];
+
+	// Create more neuron objects if requested number is larger than current max
+	if(numneurons > modneurons.size()) {
+		modneurons.resize((*netparams)["numneurons"]);
+		modneurons_max = (*netparams)["numneurons"];
+	}
+
+	unsigned long modseed = (*netparams)["modseed"];
+
 	// Set random seed
-	if((*netflags)["seedgen"]) {
+	if((*netbox->modflags)["seedgen"]) {
 		modseed = (unsigned)(time(NULL));
 		netbox->paramset.GetCon("modseed")->SetValue(modseed);
 	}
-	init_mrand(modseed);
-	*/
+	//init_mrand(modseed);
+    rng.seed(modseed);
 
-	// Initialise osmomod osmotic pressure buffer
-	OsmoStore.setsize(maxtime * 1000);
-	osmotime = 0;
+	NeuroGen();
+	neurodatabox->NeuroData();
 
-	// Initialise Population
-    magpop->numneurons = numneurons;
-	magpop->runtime = runtime;
-	magpop->neurons = &neurons;
-	//mod->magpop->StoreClear();
-
-	//NeuroGen();     // Copy and generate individual neuron parameters sets
-
-	// Initialise Protocols
-	prototype = (*mod->modeflags)["prototype"];
-
-	ParamStore *protoparams = mod->protobox->GetParams();
-
-
-	if(prototype == ramp) {
-		mod->diagbox->Write("prototype ramp\n");
-		for(i=0; i<mod->celltypes; i++) {         // currently only one cell type in use, code taken from VMN model
-			tag[i].Printf("%d", i);
-			rampbase[i] = (*protoparams)["rampbase" + tag[i]];
-			rampstart[i] = (*protoparams)["rampstart" + tag[i]];
-			rampstop[i] = (*protoparams)["rampstop" + tag[i]];
-			rampinit[i] = (*protoparams)["rampinit" + tag[i]];
-			if(rampinit[i] < 0) rampinit[i] = rampbase[i];
-			rampstep[i] = (*protoparams)["rampstep" + tag[i]];
-			rampafter[i] = (*protoparams)["rampafter" + tag[i]];
-			if(rampafter[i] < 0) rampafter[i] = rampbase[i] + (rampstop[i] - rampstart[i]) * rampstep[i];
-			mainwin->diagbox->Write(text.Format("ramp proto %d  base %.2f  step %.4f  after %.2f\n", i, rampbase[i], rampstep[i], rampafter[i]));
-		}
-		// Copy proto params to each neuron
-		for(i=0; i<numneurons; i++) {
-			(*neurons[i].protoparams)["rampbase"] = rampbase[neurons[i].type];
-			(*neurons[i].protoparams)["rampstart"] = rampstart[neurons[i].type];
-			(*neurons[i].protoparams)["rampstop"] = rampstop[neurons[i].type];
-			(*neurons[i].protoparams)["rampinit"] = rampinit[neurons[i].type];
-			(*neurons[i].protoparams)["rampstep"] = rampstep[neurons[i].type];
-			(*neurons[i].protoparams)["rampafter"] = rampafter[neurons[i].type];
-		}
-	}
-
-	if(prototype == rampcurve) {
-		mod->diagbox->Write("prototype ramp curve\n");
-		
-		// Copy proto params to each neuron
-		for(i=0; i<numneurons; i++) {
-			(*neurons[i].protoparams)["rampbase"] = (*protoparams)["rampbase1"];
-			(*neurons[i].protoparams)["rampstart"] = (*protoparams)["rampstart1"];
-			(*neurons[i].protoparams)["rampstop"] = (*protoparams)["rampstop1"];
-			(*neurons[i].protoparams)["rampinit"] = (*protoparams)["rampbase1"];
-			(*neurons[i].protoparams)["rampmax"] = (*protoparams)["rampmax1"];
-			(*neurons[i].protoparams)["rampgrad"] = (*protoparams)["rampgrad1"];
-			(*neurons[i].protoparams)["rampafter"] = (*protoparams)["rampbase1"];
-		}
-	}
-
+    if(!runflag) {
+        runflag = true;
+        modthread = new MagNetModel(this);
+		modthread->diag = false;
+        modthread->Create();
+        modthread->Run();
+    }
+    else diagbox->Write("Run command blocked, already running\n\n");
 }
 
-/*
+
 void MagNetMod::NeuroGen()
 {
 	int i, p, numgen, numparams;
@@ -306,520 +459,477 @@ void MagNetMod::NeuroGen()
 	wxString *tags;
 
 	//mainwin->diagbox->Write("NeuroGen call\n");
-    mod->DiagWrite("NeuroGen call\n");
+	DiagWrite("NeuroGen call\n");
 
-	ParamStore *netparams = mod->oxynetbox->GetParams();
-	ParamStore *neuroparams = mod->spikebox->GetParams();
+	ParamStore *netparams = netbox->GetParams();
+	ParamStore *spikeparams = spikebox->GetParams();
 
-	//ParamSet *vasoset = vasomod->vasobox->paramset;
-	//numgen = vasomod->vasogenbox->numgen;
-	//tags = vasomod->vasogenbox->gentags;
+	// Heterogeneous spiking parameters
+	ParamStore *genparams = genbox->GetParams();
+	numgen = genbox->numgen;
+	tags = genbox->gentags;
 
 	for(i=0; i<numneurons; i++) {
-		neurons[i].type = 0;
-		mod->spikebox->GetParams(neurons[i].spikeparams);  
-		mod->secbox->GetParams(neurons[i].secparams);
-		mod->signalbox->GetParams(neurons[i].sigparams);
-		mod->dendbox->GetParams(neurons[i].dendparams);
-		mod->synthbox->GetParams(neurons[i].synthparams);
+		modneurons[i].type = 0;
+		spikebox->GetParams(modneurons[i].spikeparams);
+		secbox->GetParams(modneurons[i].secparams);
+		signalbox->GetParams(modneurons[i].sigparams);
+		dendbox->GetParams(modneurons[i].dendparams);
+		synthbox->GetParams(modneurons[i].synthparams);
 
-		if((*netflags)["netinit"] || !neurons[i].initflag) {
+		if((*netbox->modflags)["netinit"] || !modneurons[i].initflag) {
 			// Neuron heterogeneity
-			paramsdgen = gaussian(0, 1);
+			paramsdgen = rng.normal();
 			lognormvar = exp(0 + (*netparams)["synvarsd"] * paramsdgen);
-			neurons[i].synvar = lognormvar;
+			modneurons[i].synvar = lognormvar;                                    
 			// Store initialisation
-			neurons[i].mRNAinit = (*netparams)["mRNAinit"];
-			neurons[i].storeinit = (*netparams)["storeinit"];
+			modneurons[i].mRNAinit = (*netparams)["mRNAinit"];
+			modneurons[i].storeinit = (*netparams)["storeinit"];
 		}
 
-		(*neurons[i].spikeparams)["synvar"] = neurons[i].synvar;
-		(*neurons[i].synthparams)["mRNAinit"] = neurons[i].mRNAinit;
-		(*neurons[i].secparams)["Rinit"] = neurons[i].storeinit;
-		neurons[i].netinit = (*netflags)["netinit"];
-		neurons[i].storereset = (*netflags)["storereset"];
-		neurons[i].initflag = true;
+		(*modneurons[i].spikeparams)["synvar"] = modneurons[i].synvar;             // 29/10/22 temp disable for spike fits plasma mean
+		(*modneurons[i].synthparams)["mRNAinit"] = modneurons[i].mRNAinit;
+		(*modneurons[i].secparams)["Rinit"] = modneurons[i].storeinit;
+		modneurons[i].netinit = (*netbox->modflags)["netinit"];
+		modneurons[i].storereset = (*netbox->modflags)["storereset"];
+		modneurons[i].initflag = true;
 
-		// old heterogeneous bursting parameter code - save for future 13/4/21
-		/*vasomod->vasobox->GetParams(params);	    
-		for(p=0; p<numgen; p++) {
-			paramsdgen = gaussian(0, 1);
-			(*params)[tags[p] + "sdgen"] = paramsdgen;
-			paramval = (*genparams)[tags[p] + "base"] + (*genparams)[tags[p] + "sd"] * paramsdgen;
-			//paramval = gaussian((*genparams)[tags[p] + "base"], (*genparams)[tags[p] + "sd"]);
-			if(paramval < 0 && tags[p] != "Vrest") paramval = 0;
-			if(tags[p] == "ratioDyno") {
-				dynotau = 1/log((double)2)/((*params)["halflifeDyno"]/1000);
-				(*params)["kDyno"] = dynotau * paramval; 
+
+		// heterogeneous spiking parameter code
+		if((*netbox->modflags)["neurogen"]) {
+			ParamStore *params = modneurons[i].spikeparams;
+			for (p = 0; p < numgen; p++) {
+                paramsdgen = rng.normal();
+					(*params)[tags[p] + "sdgen"] = paramsdgen;
+					if (i == 0) DiagWrite(text.Format("NeuroGen param %d tag %s\n", p, tags[p]));
+					paramval = (*genparams)[tags[p] + "base"] + (*genparams)[tags[p] + "sd"] * paramsdgen;
+					(*params)[tags[p]] = paramval;
 			}
-			else if(tags[p] == "synvar") {
-				lognormvar = exp(0 + (*genparams)[tags[p] + "sd"] * paramsdgen);
-				(*params)["synvar"] = lognormvar;
-			}
-			else (*params)[tags[p]] = paramval;
 		}
+	}
+}
+
+/*
+void VasoBox::NeuroGen(ParamStore *genparams)
+{
+	int i, conref, numgen;
+	wxString paramtag[10];
+	double paramval;
+	double dynotau, halflifeDyno;
+
+	paramtag[0] = "halflifeHAP";
+	paramtag[1] = "kAHP";
+	paramtag[2] = "kDAP";
+	paramtag[3] = "halflifeDyno";
+	paramtag[4] = "ratioDyno";
+	paramtag[5] = "kCa";
+	paramtag[6] = "gKL";
+	numgen = 7;
+
+	for(i=0; i<numgen; i++) {
+		paramval = gaussian((*genparams)[paramtag[i] + "base"], (*genparams)[paramtag[i] + "sd"]);
+		if(paramval < 0) paramval = 0;
+		if(paramtag[i] == "halflifeDyno") halflifeDyno = paramval; 
+		if(paramtag[i] == "ratioDyno") {
+			dynotau = 1/log((double)2)/(halflifeDyno/1000);  // FIX THIS, halflifedyno not set
+			paramval = dynotau * paramval; 
+			conref = paramset.ref["kDyno"];
+		}
+		else conref = paramset.ref[paramtag[i]];	
+		paramset.con[conref]->SetValue(paramval);
 	}
 }
 */
 
 
-int MagNetMod::InputGen()
+MagNetMod::~MagNetMod()
 {
-	int i, n, c, t, inpcell;
-	int msteps = 1000;    // number of neuron model steps per s
-	double gen;
-	double inpfreq;
-	int cell;
-	int inputcells;
-	double neurosyn, synvar;
-	double netinput, netIratio;
-	double hstep = 1;
-	ParamStore *neuroparams;
-	wxString text;
-
-	double epspt, ipspt;
-	double erate, irate;
-	int nepsp, nipsp;
-	int numsteps;
-	int celltype;
-
-	int maxinputcells = 500;
-	int maxconnect = 1000;
-
-	FILE *ofp = NULL, *tofp = NULL;
-	wxCommandEvent progevent(wxEVT_COMMAND_TEXT_UPDATED, ID_Progress);
-
-	// std::vector<std::vector<int>> aVector(row_size, std::vector<int>(col_size));
-
-	std::vector<std::vector<short>> Ecellconnect(maxinputcells, std::vector<short>(maxconnect));
-	std::vector<std::vector<short>> Icellconnect(maxinputcells, std::vector<short>(maxconnect));
-	//short *Icellconnect[500];
-
-	//for(i=0; i<maxinputcells; i++) Ecellconnect[i] = new short[maxconnect];
-	//for(i=0; i<maxinputcells; i++) Icellconnect[i] = new short[maxconnect];
-
-	//short Ecellconnect[500][1000];  // Stores the EPSP connection matrix    ([input cell, connection index] = neuron index)  
-	//short Icellconnect[500][1000];  // Stores the IPSP connection matrix    max 500 input cells, max 100 neuron connections per input cell
-	short Econnect[500];			  // Connection counts for each EPSP input cell 
-	short Iconnect[500];			  // Connection counts for each IPSP input cell 
-	short inputcheck[500];
-
-	unsigned char *dendinputE[1000];
-	unsigned char *dendinputI[1000];
-
-	if(diag) tofp = fopen("inputgen-diag.txt", "w");
-
-	inputcells = (*netparams)["inputcells"];   // Number of input (presynaptic) cells 
-	neurosyn = (*netparams)["neurosyn"];       // Number of input (presynaptic) cells connected each neuron in network/population
-	netinput = (*netparams)["netinput"];       // EPSP input rate
-	netIratio = (*netparams)["netIratio"];     // Input Iratio - IPSP/EPSP ratio
-
-	// inputcells must be greater than or equal to neurosyn
-	if(inputcells < neurosyn) {
-		mod->diagbox->Write("\nInputGen : Error, inputcells too low for neurosyn\n");
-		return 0;
-	}
-
-	// Ratio of inputcells to neurosyn determine degree of independence between neurons inputs, 1 gives every neuron the same PSPs 
-	// Currently Iratio determines relative IPSP rate rather than number of connected IPSP cells
-	// Input rate (netinput) currently fixed but could easily be varied, just have to do rate and Iratio conversion at each step
-
-
-	// Ramp Protocol
-	prototype = (*mod->modeflags)["prototype"];
-	double rampstep1ms[2]; 
-	rampstep1ms[0] = (double)rampstep[0] / 1000;
-	rampstep1ms[1] = (double)rampstep[1] / 1000;
-	celltype = 0;
-
-	inpfreq = netinput / neurosyn;
-	//inpfreq = 3;
-	erate = inpfreq / 1000;
-	irate = erate * netIratio;
-
-	//// Set up connections
-	//for(i=0; i<inputcells; i++) {
-	numsteps = msteps * runtime;
-
-	if(diag) {
-		fprintf(tofp, "InputGen %d input cells, %d neurons\n", inputcells, numneurons);
-		fprintf(tofp, "Runtime %d  Numsteps %d  Neuron Inputs %.2f\n\n", runtime, numsteps, neurosyn);
-		fflush(tofp);
-	}
-
-	for(inpcell=0; inpcell<inputcells; inpcell++) {
-		Econnect[inpcell] = 0;
-		Iconnect[inpcell] = 0;
-	}
-
-
-	// Loop generates random subset of input cells for each neuron, repeated for EPSPs and IPSPs 
-
-	for(n=0; n<numneurons; n++) {
-		// Progress
-		//if(n%(numneurons/10) == 0) mod->oxynetbox->SetStatus(text.Format("InputGen...%d\%\n", 100*n/numneurons));
-		// Input Storage
-		neurons[n].dendinputE = new unsigned char[numsteps];
-		neurons[n].dendinputI = new unsigned char[numsteps];
-		//mod->diagbox->Write(text.Format("neuron %d allocated %d\n"));
-		for(t=0; t<numsteps; t++) {
-			neurons[n].dendinputE[t] = 0;
-			neurons[n].dendinputI[t] = 0;
-		}
-
-		// Heterogeneity
-		neuroparams = neurons[n].spikeparams;
-		synvar = (*neuroparams)["synvar"];
-
-		//fprintf(tofp, "neuron %d storage ok\n", n);
-		//fflush(tofp);
-
-		// Connection generation
-
-		for(inpcell=0; inpcell<inputcells; inpcell++) inputcheck[inpcell] = 0;    
-
-		//fprintf(tofp, "neuron %d connections cleared\n", n);
-		//fflush(tofp);
-
-		for(c=0; c<(int)(neurosyn * synvar); c++) {
-			gen = mrand01();
-			cell = floor(gen * inputcells);
-			while(inputcheck[cell] > 0) {
-				gen = mrand01();
-				cell = floor(gen * inputcells);
-			}
-			inputcheck[cell]++;
-			//neurons[n].inputconnect[c] = cell;
-			Ecellconnect[cell][Econnect[cell]] = n;
-			Econnect[cell]++;
-		}
-
-		for(inpcell=0; inpcell<inputcells; inpcell++) inputcheck[inpcell] = 0;
-
-		//fprintf(tofp, "neuron %d connections cleared\n", n);
-		//fflush(tofp);
-
-		for(c=0; c<(int)(neurosyn * synvar); c++) {
-			gen = mrand01();
-			cell = floor(gen * inputcells);
-			while(inputcheck[cell] > 0) {
-				gen = mrand01();
-				cell = floor(gen * inputcells);
-			}
-			inputcheck[cell]++;
-			//neurons[n].inputconnect[c] = cell;
-			Icellconnect[cell][Iconnect[cell]] = n;
-			Iconnect[cell]++;
-		}
-
-		//fprintf(tofp, "neuron %d connections generated\n", n);
-		//fflush(tofp);
-	}
-
-	if(diag) fprintf(tofp, "\n");
-
-	mod->netbox->SetStatus("InputGen...connect OK...\n");
-
-	// Input generation
-
-	// Loop generates random epsps for each input cell
-	// - could reverse loop order to put cell loop inside time step loop for more efficient variable erate
-	// - but current order better for potential multi-threading
-
-	for(inpcell=0; inpcell<inputcells; inpcell++) {
-		epspt = -log(1 - mrand01()) / erate;   // initial epspt value, could just be 0
-		ipspt = -log(1 - mrand01()) / irate;
-
-		mod->netbox->SetStatus(text.Format("InputGen...connect OK...cell %d\n", inpcell));
-
-		// input array pointer copies for fast access
-		for(c=0; c<Econnect[inpcell]; c++) dendinputE[c] = neurons[Ecellconnect[inpcell][c]].dendinputE;
-		for(c=0; c<Iconnect[inpcell]; c++) dendinputI[c] = neurons[Icellconnect[inpcell][c]].dendinputI;
-
-		for(t=0; t<numsteps; t++) {
-
-			// Variable Input Signal
-			if(prototype == ramp) {
-				//mod->diagbox->Write("set ramp\n"); 
-				if(t < rampstart[celltype]*1000) rampinput[celltype] = rampbase[celltype];
-				if(t >= rampstart[celltype]*1000 && t < rampstop[celltype]*1000) 
-					rampinput[celltype] = rampinit[celltype] + (t - rampstart[celltype]*1000) * rampstep1ms[celltype] * hstep;
-				//if(t >= rampstop[celltype]*1000) rampinput[celltype] = rampbase[celltype];
-				if(t >= rampstop[celltype]*1000) rampinput[celltype] = rampafter[celltype];
-				netinput = rampinput[celltype];
-				if(netinput < 0) netinput = 0;
-
-				inpfreq = netinput / neurosyn;
-				erate = inpfreq / 1000;
-				irate = erate * netIratio;
-			}
-
-			if(!inpcell && t%1000 == 0) magpop->netsignal[t/1000] = netinput;   // Record net signal at 1s resolution
-
-			nepsp = 0;
-			while(epspt < hstep) {
-				nepsp++;
-				epspt = -log(1 - mrand01()) / erate + epspt;
-			}
-			epspt = epspt - hstep;
-
-			// At each step add EPSPs to EPSP counts for all connected neurons
-			if(nepsp > 0) {
-				// add input
-				for(c=0; c<Econnect[inpcell]; c++) 
-					//neurons[Ecellconnect[inpcell][c]].dendinputE[t] += nepsp;	
-					dendinputE[c][t] += nepsp;
-			}
-
-			nipsp = 0;
-			while(ipspt < hstep) {
-				nipsp++;
-				ipspt = -log(1 - mrand01()) / irate + ipspt;
-			}
-			ipspt = ipspt - hstep;
-			if(nipsp > 0) {
-				// add input
-				for(c=0; c<Iconnect[inpcell]; c++)
-					//neurons[Icellconnect[inpcell][c]].dendinputI[t] += nipsp;
-					dendinputI[c][t] += nipsp;
-			}
-		}
-	}
-
-	/*for(inpcell=0; inpcell<inputcells; inpcell++) {
-		ipspt = -log(1 - mrand01()) / irate;
-		for(t=0; t<numsteps; t++) {
-			nipsp = 0;
-			while(ipspt < hstep) {
-				nipsp++;
-				ipspt = -log(1 - mrand01()) / irate + ipspt;
-			}
-			ipspt = ipspt - hstep;
-			if(nipsp > 0) {
-				// add input
-				for(c=0; c<Iconnect[inpcell]; c++)
-					neurons[Icellconnect[inpcell][c]].dendinputI[t] += nipsp;
-			}
-		}
-	}*/
-
-	// Diagnostic Output
-
-	if(diag) {
-		ofp = fopen("inputnet.txt", "w");
-		
-		fprintf(ofp, "Input Network\n\n");
-		fprintf(ofp, "%d input cells\n", inputcells);
-
-		for(i=0; i<10; i++) {
-			fprintf(ofp, "input cell %d  connections %d\n", i, Econnect[i]);
-			fprintf(ofp, "neuron ");
-			for(c = 0; c<Econnect[i]; c++) fprintf(ofp, "%d ", Ecellconnect[i][c]);
-			fprintf(ofp, "\n");
-		}
-		fprintf(ofp, "\n"); 
-
-		int epspsum = 0, ipspsum = 0;
-
-		for(t=0; t<1000; t++) {
-			if(neurons[0].dendinputE[t] > 0 || neurons[0].dendinputI[t] > 0) 
-				fprintf(ofp, "neuron0  time %dms  epsp %d  ipsp %d\n", t, neurons[0].dendinputE[t], neurons[0].dendinputI[t]);
-			epspsum += neurons[0].dendinputE[t];
-			ipspsum += neurons[0].dendinputI[t];
-		}
-		fprintf(ofp, "epsp total %d  ipsp total %d\n", epspsum, ipspsum);
-
-		fclose(ofp);
-	}
-	if(diag) fclose(tofp);
-
-	return 1;
+	delete netdata;
+	//delete[] neurons;
+	delete currmodneuron;
+	delete netdat;
+	delete netneuron;
+	delete magpop;
+	delete neurodata;
 }
 
 
-void MagNetMod::RunNet()
+void MagNetMod::GraphData()
 {
-	int i;
-	int step;
-	wxString text;
-	int maxtime = magpop->maxtime;
-	clock_t timestart, timerun;
+	wxString tag, label;
+	wxString null = "null";
+	int i, selectcode = 100;
+	GraphSet *graphset;
 
-	mod->DiagWrite(text.Format("\nRunNet %d neurons\n\n", numneurons));
-
-	netsecX = 0;
-	tPlasma = 0;
-	tEVF = 0;
-
-	// Initialise buffered secretion summation store
-	for(i=0; i<maxtime*1000; i++) mod->magpop->secX[i] = 0;
-	for(i=0; i<maxtime; i++) mod->magpop->secXcount[i] = 0;
-	mod->magpop->secXtime = -1;
-
-	// Generate and run neuron threads
-	// Every thread is an instance of the class MagNeuroMod that runs the single neuron code 
-	// Every thread needs to be created, run, and deleted after it has finished
-
-	// Create Threads
-	for(i=0; i<numneurons; i++) {
-		//mod->diagbox->Write(text.Format("Init cell %d\n", i));
-		neurothread[i] = new MagNeuroMod(i, &neurons[i], this); 
-		neurothread[i]->Create();
-	}
-	//if(osmomode) osmothread = new OxyOsmoMod(this);
-	if(plasmamode) plasmathread = new MagPlasmaMod(this);
-
-	timestart = clock();
-
-	// Run Threads
-	for(i=0; i<numneurons; i++) neurothread[i]->Run(); 
-	//if(osmomode) osmothread->Run();
-	if(plasmamode) plasmathread->Run();
-
-	// Wait for Thread Completion
-	for(i=0; i<numneurons; i++) {
-		neurothread[i]->Wait(); 
-		//mod->diagbox->Write(text.Format("Cell %d OK\n", i));
-	}
-	//if(osmomode) osmothread->Wait();
-	if(plasmamode) plasmathread->Wait();
-
-	timerun = clock() - timestart;
-	if(mainwin->diagbox) mod->DiagWrite(text.Format("runtime %d clicks (%f seconds)\n", timerun,((double)timerun)/CLOCKS_PER_SEC));
-
-	// Clean up threads
-	for(i=0; i<numneurons; i++) delete neurothread[i]; 
-	//if(osmomode) delete osmothread;
-	if(plasmamode) delete plasmathread;
-
-	mod->DiagWrite(text.Format("\nRunNet OK\n\n"));
-
-	mod->neurodatabox->NeuroData();
-
-
+	// Data graphs
 	//
-	// Population Analysis
-	//
+	// GraphDat(data pointer, xfrom, xto, yfrom, yto, label string, graph type, bin size, colour)
+	// ----------------------------------------------------------------------------------
+	graphbase->Add(GraphDat(magpop->OxySecretion, 0, 50000, 0, 300, "Oxytocin Secretion", 5, 1, green), "OxySecretion");
+	graphbase->Add(GraphDat(magpop->OxyPlasma, 0, 50000, 0, 10000, "Oxytocin Plasma", 5, 1, blue), "OxyPlasma");
+	graphbase->Add(GraphDat(&magpop->secLong, 0, 50000, 0, 300, "Secretion 60s", 5, 60, lightblue), "seclong");
+	graphbase->Add(GraphDat(&magpop->secHour, 0, 50000, 0, 30, "Secretion 10min", 5, 600, lightblue), "sechour");
 
-	//double popfreq = 0;  // Global FR
+	graphbase->Add(GraphDat(&neurodata->secP, 0, 500, 0, 5000, "Secretion P", 5, 1, lightred, 1000/datsample), "oxysecp");
+	graphbase->Add(GraphDat(&neurodata->secR, 0, 500, 0, 20000, "Secretion R", 5, 1, lightred, 1000/datsample), "oxysecr");
+	graphbase->Add(GraphDat(&neurodata->secX, 0, 500, 0, 30, "Secretion X", 5, 1, lightred, 1000/datsample), "oxysecx");
 
-	magpop->PopSum();
+	graphbase->Add(GraphDat(&neurodata->Ca, 0, 500, 0, 500, "Neuron Ca", 5, 1, lightgreen, 1000/datsample), "neuroCa");
 
-	/*for(i=0; i<numneurons; i++) {
-		neurons[i].ratecalc();
-		popfreq += neurons[i].freq;
-	}*/
+	graphbase->Add(GraphDat(&magpop->OxySecretionNet, 0, 50000, 0, 300, "Net Oxy Secretion", 4, 1, lightgreen), "OxySecretionNet");
+	//graphbase->Add(GraphDat(&magpop->secX, 0, 50000, 0, 300, "Net Oxy Secretion", 5, 1, lightgreen), "OxySecretionNet");
+	graphbase->Add(GraphDat(&magpop->NetSecretion4s, 0, 50000, 0, 300, "Net Secretion 4s", 5, 4, lightblue), "NetSecretion4s");
+	graphbase->Add(GraphDat(&magpop->OxyPlasmaNet, 0, 50000, 0, 10000, "Net Oxy Plasma", 5, 1, lightblue), "OxyPlasmaNet");
+	graphbase->Add(GraphDat(&magpop->plasmaLong, 0, 50000, 0, 10000, "Plasma Long", 5, 60, purple), "plasmalong");
+	graphbase->Add(GraphDat(&magpop->netsecLong, 0, 50000, 0, 300, "Net Secretion 60s", 5, 60, lightblue), "netseclong");
+	graphbase->Add(GraphDat(&magpop->netsecHour, 0, 50000, 0, 300, "Net Secretion 1h", 5, 600, lightblue), "netsechour");
 
-	//popfreq = popfreq / numneurons;
+	graphbase->NewSet("Osmotic", "osmo");
+	graphbase->GetSet("osmo")->submenu = 1;
+	graphbase->Add(GraphDat(&magpop->PlasmaNaConc, 0, 90000, 0, 300, "Plasma Na+ Concentration (1s bins)", 4, 1, lightgreen), "PlasmaNaConc", "osmo");
+	graphbase->Add(GraphDat(&magpop->EVFNaConc, 0, 90000, 0, 10000, "EVF Na+ Concentration (1s bins)", 4, 1, lightblue), "EVFNaConc", "osmo");
+	graphbase->Add(GraphDat(&magpop->DiffNaGrad, 0, 90000, 0, 300, "Diffusion Na+ Gradient Plasma<->EVF (1s bins)", 4, 1, lightgreen), "DiffNaGrad", "osmo");
+	graphbase->Add(GraphDat(&magpop->ICFGrad, 0, 90000, 0, 10000, "ICF<->EVF Gradient (1s bins)", 4, 1, lightblue), "ICFGrad", "osmo");
+	graphbase->Add(GraphDat(&magpop->ICFVol, 0, 90000, 0, 300, "ICF Volume (ml) (1s bins)", 4, 1, lightgreen), "ICFVol", "osmo");
+	graphbase->Add(GraphDat(&magpop->EVFNaVol, 0, 90000, 0, 10000, "EVF Volume (ml) (1s bins)", 4, 1, lightblue), "EVFNaVol", "osmo");
+	graphbase->Add(GraphDat(&magpop->OsmoPress1s, 0, 90000, 0, 10000, "Osmotic Pressure (ml) (1s bins)", 4, 1, lightblue), "OsmoPress1s", "osmo");
 
+	graphbase->Add(GraphDat(&magpop->inputsignal, 0, 50000, 0, 10000, "Input Signal", 5, 1, lightgreen, 10), "inputsignal");
+	graphbase->Add(GraphDat(&magpop->netsignal, 0, 50000, 0, 1000, "Net Signal", 5, 1, lightblue), "netsignal");
+	graphbase->Add(GraphDat(&magpop->inputLong, 0, 50000, 0, 10000, "Input Long", 5, 60, lightgreen), "inputlong");
+	graphbase->Add(GraphDat(&magpop->transLong, 0, 50000, 0, 10000, "Trans Long", 5, 60, lightred), "translong");
+
+	graphbase->Add(GraphDat(&neurodata->pspsig, 0, 50000, 0, 1000, "PSP Signal", 5, 1, lightblue), "pspsig");
+	graphbase->Add(GraphDat(&neurodata->V, 0, 50000, 0, 1000, "Rec V", 5, 1, lightgreen), "recV");
+	graphbase->Add(GraphDat(&neurodata->syn, 0, 50000, 0, 1000, "Rec Syn", 5, 1, lightblue), "recsyn");
+	graphbase->Add(GraphDat(&neurodata->psp, 0, 50000, 0, 1000, "Rec PSP", 5, 1, lightred), "recpsp");
+	graphbase->Add(GraphDat(&neurodata->rand, 0, 50000, 0, 1000, "Rec Rand", 5, 1, purple), "recrand");
+	//graphbase->Add(GraphDat(&oxyneurodata->inputrate, 0, 50000, 0, 1000, "Input Signal", 5, 1, lightgreen), "inputrate");
+
+	graphbase->Add(GraphDat(&magpop->storesum, 0, 1000, 0, 1000000, "Summed Store", 5, 1000, blue, 1000), "sumstore");
+	graphbase->Add(GraphDat(&magpop->storeLong, 0, 1000, 0, 300, "Store Long", 5, 60, lightblue), "storelong");
+	graphbase->Add(GraphDat(&magpop->synthstoreLong, 0, 1000, 0, 300, "Synth Store Long", 5, 60, lightred), "synthstorelong");
+	graphbase->Add(GraphDat(&magpop->synthrateLong, 0, 1000, 0, 300, "Synth Rate Long", 5, 60, lightred), "synthratelong");
+	graphbase->Add(GraphDat(&magpop->storesumLong, 0, 1000, 0, 300, "Summed Store Long", 5, 60, lightblue), "sumstorelong");
+	graphbase->Add(GraphDat(&magpop->synthstoresumLong, 0, 1000, 0, 300, "Summed Synth Store", 5, 60, lightred), "sumsynthstorelong");
+	graphbase->Add(GraphDat(&magpop->synthratesumLong, 0, 15, 0, 300, "Summed Synth Rate", 5, 60, lightblue), "synthratesumlong");
+
+
+	graphbase->Add(GraphDat(&neurodata->stimTL, 0, 500, 0, 20000, "Synth TL", 5, 1, lightgreen, 1000/datsample), "stimtl");
+	graphbase->Add(GraphDat(&neurodata->stimTS, 0, 500, 0, 30, "Synth TS", 5, 1, lightblue, 1000/datsample), "stimts");
+	graphbase->Add(GraphDat(&neurodata->mRNAstore, 0, 500, 0, 30, "mRNA store", 5, 1, lightred, 1000/datsample), "mrnastore");
+
+	graphbase->Add(GraphDat(&magpop->storesumNorm, 0, 1000, 0, 300, "Summed Store Norm", 5, 60, lightblue), "sumstorenorm");
+
+
+	// Spike data plots
+
+	currmodneuron->PlotSet(graphbase, "Model ", blue, 1, "model");
+	netdat->PlotSet(graphbase, "Net ", blue, 1, "net");
+	viewcell[0].PlotSet(graphbase, "Cell ", green, 1, "cell0");
+
+	tag = "model";
+	graphset = graphbase->NewSet("Model Spikes", "modelspikes");
+	graphset->AddFlag("spikeres", 1);
+	graphset->AddFlag("rateres", 10);
+	graphset->AddFlag("nettog", 100);
+	graphset->Add(tag + "rate1s", 0);
+	graphset->Add(tag + "spikes1ms", 1);
+	graphset->Add(tag + "rate10s", 10);
+	graphset->Add(tag + "rate30s", 20);
+	graphset->Add(tag + "rate300s", 30);
+	graphset->Add("netrate1s", 100);
+	graphset->Add("netspikes1ms", 101);
+	//graphset->Add("netrate10s", 10);
+	if(diagbox) diagbox->textbox->AppendText(graphset->Display());
+
+	graphset = graphbase->NewSet("Model Intervals", "modelintervals");
+	graphset->IntervalSet("model", true, false);
+
+	/*
+	graphset->AddFlag("binrestog1", 1);
+	graphset->AddFlag("hazmode1", 10);
+	graphset->AddFlag("normtog", 100);
+	graphset->AddFlag("nettog", 1000);
+	graphset->Add(tag + "hist1ms", 0);
+	graphset->Add(tag + "hist5ms", 1);
+	graphset->Add(tag + "haz1ms", 10);
+	graphset->Add(tag + "haz5ms", 11);
+	graphset->Add(tag + "normhist1ms", 100);
+	graphset->Add(tag + "normhist5ms", 101);
+	graphset->Add(tag + "haz1ms", 110);
+	graphset->Add(tag + "haz5ms", 111);
+	graphset->Add("nethist1ms", 1000);
+	graphset->Add("nethaz1ms", 1010);
+	graphset->Add("nethist5ms", 1001);
+	graphset->Add("nethaz5ms", 1011);
+	*/
+
+	tag = "cell0";
+	graphset = graphbase->NewSet("Cell Spikes", "cellspikes");
+	graphset->AddFlag("spikeres", 1);
+	graphset->AddFlag("rateres", 10);
+	graphset->Add(tag + "rate1s", 0);
+	graphset->Add(tag + "spikes1ms", 1);
+	graphset->Add(tag + "rate100ms", 11);
+	graphset->Add(tag + "rate10s", 10);
+	graphset->Add(tag + "rate30s", 20);
+	graphset->Add(tag + "rate300s", 30);
+
+	graphset = graphbase->NewSet("Cell Intervals", "cellintervals");
+	//graphset->IntervalSet("cell0", false, true, selectcode);
+	graphset->IntervalSet("cell0");
+
+	//graphbase->GetGraph("cell0spikes1ms")->drawX = 15000;
+	//graphbase->GetGraph("cell0spikes1ms")->xaxis = 1;
+	//graphbase->GetGraph("cell0spikes1ms")->yaxis = 0;
+
+
+	tag = "net";
+	graphset = graphbase->NewSet("Net Spikes", "netspikes");
+	graphset->AddFlag("spikeres", 1);
+	graphset->AddFlag("rateres", 10);
+	graphset->AddFlag("nettog", 100);
+	graphset->Add(tag + "rate1s", 0);
+	graphset->Add(tag + "spikes1ms", 1);
+	graphset->Add(tag + "rate10s", 10);
+	graphset->Add(tag + "rate30s", 20);
+	graphset->Add(tag + "rate300s", 30);
+
+
+	// Multi Cell Plots
+	neurobox->cellpanel->neuropop.popdat->PlotSetBasic(graphbase, "MultiCell ", purple, 1, "multicell");
+    graphset = graphbase->NewSet("MultiCell Intervals", "multiintervals");
+	graphset->IntervalSetBasic("multicell", false, false);
 	
 
-	if((*netflags)["netanalysis"]) {
+	//graphbase->Add(GraphDat(&currmodneuron->IoDdata, 0, 100, 0, 100, "IoD Model", 2, 1, lightblue), "iodmod");
+	//graphbase->GetGraph("iodmod")->gdatax = &currmodneuron->IoDdataX;
+	//graphbase->GetGraph("iodmod")->xcount = 7;  
+	//graphbase->GetGraph("iodmod")->synchx = false;
 
-		// 'netspikes' is a SpikeDat used to store population summed/mean neuron analysis 
-		// 'netneuron' is a SpikeDat used for temporary individual neuron analysis
+	IoDGraph(&currmodneuron->IoDdata, &currmodneuron->IoDdataX, "IoD Model", "iodmod", lightblue, 0, null);
+	IoDGraph(&currmodneuron->burstdata->IoDdata, &currmodneuron->burstdata->IoDdataX, "IoD Burst Model", "iodburstmod", lightblue, 20, null);
+	IoDGraph(&currmodneuron->selectdata->IoDdata, &currmodneuron->selectdata->IoDdataX, "IoD Select Model", "iodselectmod", lightgreen, 20, null);
+	graphset = graphbase->NewSet("IoD Model", "iodmod");
+	graphset->AddFlag("burstmode", 1);
+	graphset->AddFlag("selectmode", 10);
+	graphset->Add("iodmod", 0);
+	graphset->Add("iodburstmod", 1);
+	//graphset->Add("iodselectmod", 10);
+	//graphset->Add("iodselectmod", 11);
+	graphset->Add("iodmod", 10);
+	graphset->Add("iodmod", 11);
+
+	graphbase->Add(GraphDat(&nethist, 0, 50, 0, 100, "Net Histogram 1", 1, 1, lightblue), "nethist1");
+
+	IoDGraph(&viewcell[0].IoDdata, &viewcell[0].IoDdataX, "IoD Cell", "iodcell0", lightgreen, 10, null);
+	IoDGraph(&viewcell[0].burstdata->IoDdata, &viewcell[0].burstdata->IoDdataX, "IoD Burst Cell", "iodburstcell0", lightblue, 20, null);
+	IoDGraph(&viewcell[0].selectdata->IoDdata, &viewcell[0].selectdata->IoDdataX, "IoD Select Cell", "iodselectcell0", lightgreen, 20, null);
+	graphset = graphbase->NewSet("IoD Cell", "iodcell0");
+	graphset->AddFlag("burstmode", 1);
+	graphset->AddFlag("selectmode", 10);
+	graphset->Add("iodcell0", 0);
+	graphset->Add("iodburstcell0", 1);
+	graphset->Add("iodselectcell0", 10);
+	graphset->Add("iodselectcell0", 11);
+
+	//graphset->AddFlag("selectmode", 1);
+	//graphset->Add("iodcell0", 0);
+	//graphset->Add("iodburstcell0", 1);
+	//graphset->Add("iodselectcell0", 1);
+
+	/*
+	graphbase->Add(GraphDat(oxynetnet->cellpspsig, 0, 1000, 0, 300, "Cell PSP Signal", 4, 1, blue), "cellpspsig");
+	graphbase->Add(GraphDat(oxynetnet->cellCa, 0, 1000, 0, 300, "Cell Ca", 4, 1, red, 1), "cellCa");
+	graphbase->Add(GraphDat(oxynetnet->cellGnRH, 0, 1000, 0, 300, "Cell GnRH", 4, 1, red, 1), "cellGnRH");
+	graphbase->Add(GraphDat(oxynetnet->cellCaLong, 0, 1000, 0, 300, "Cell Ca Long", 4, 1, blue, 1), "cellCaLong");*/
+
+	graphbase->NewSet("Range Data", "rangedata");
+	graphbase->GetSet("rangedata")->submenu = 1;
+
+	for(i=0; i<rangecount; i++) {
+		tag.Printf("rangedata%d", i);
+		label.Printf("Range Data %d", i);
+		graphbase->Add(GraphDat(&rangedata[i], 0, 1000, 0, 100, label, 2, 1, lightred + i), tag, "rangedata");
+		graphbase->GetGraph(tag)->gdatax = &rangeref;
+		graphbase->GetGraph(tag)->xcount = 100;   
+		graphbase->GetGraph(tag)->synchx = false;
+		graphbase->GetGraph(tag)->scattermode = true;
+		graphbase->GetGraph(tag)->scattersize = 5;
+	}
+
+	// Data plots
+	graphset = graphbase->NewSet("Data Plots", "dataplots");
+	graphset->submenu = 1;
+	for(i=0; i<10; i++) {
+		tag.Printf("datahist%d", i);
+		graphbase->Add(GraphDat(&datahist[i], 0, 1000, 0, 100, label.Format("Data Hist%d", i), 1, 1, lightgreen), tag, "dataplots");
+		graphbase->GetGraph(tag)->gdatax = &datahistx[i];
+		graphbase->GetGraph(tag)->xcount = 5;   
+		graphbase->GetGraph(tag)->synchx = false;
+		graphbase->GetGraph(tag)->scattermode = true;
+		graphbase->GetGraph(tag)->scattersize = 10;
+	}
+
+	// Grid data plots
+	graphset = graphbase->NewSet("Grid Plots", "gridplots");
+	graphset->submenu = 1;
+	for(i=0; i<20; i++) {
+		tag.Printf("gridplot%d", i);
+		graphbase->Add(GraphDat(&gridplot[i], 0, 1000, 0, 100, label.Format("Grid Plot %d", i), 1, 1, lightgreen), tag, "gridplots");
+		graphbase->GetGraph(tag)->gdatax = &gridplotx[i];
+		graphbase->GetGraph(tag)->xcount = 5;   
+		graphbase->GetGraph(tag)->synchx = false;
+		graphbase->GetGraph(tag)->scattermode = true;
+		graphbase->GetGraph(tag)->scattersize = 10;
+		graphbase->GetGraph(tag)->gdataerr = &gridploterr[i];
+	}
+
+	gcodes[0] = "modelspikes";
+	gcodes[1] = "modelintervals";
+	gcodes[2] = "OxySecretion";
+	gcodes[3] = "OxySecretionNet";
+	gcodes[4] = "OxyPlasmaNet";
+	gcodes[5] = "modelspikes";
+	gcodes[6] = "modelspikes";
+	gcodes[7] = "modelspikes";
 	
-		// Population spike rate, histogram, and hazard in different binwidths 
+	gcount = 8;
+	gsmode = 1;
+}
 
-		// Reset population counts
-		for(i=0; i<magpop->maxtime; i++) mod->netdat->srate1s[i] = 0;
-		for(i=0; i<magpop->maxtime/10; i++) mod->netdat->srate10s[i] = 0;
-		for(i=0; i<magpop->maxtime/30; i++) mod->netdat->srate30s[i] = 0;
-		for(i=0; i<magpop->maxtime/300; i++) mod->netdat->srate300s[i] = 0;
-		for(i=0; i<magpop->maxtime/600; i++) mod->netdat->srate600s[i] = 0;
 
-		for(i=0; i<1000000; i++) mod->netdat->srate1[i] = 0;   // 1ms bins for individual spikes
+void MagNetMod::GSwitch(GraphDisp *gpos, ParamStore *gflags)
+{
+	int i, gdex;
+	GraphSet *graphset;
+	wxString text;
 
-		for(i=0; i<10000; i++) {
-			mod->netdat->hist1[i] = 0;
-			mod->netdat->hist5[i] = 0;
-			mod->netdat->haz1[i] = 0;
-			mod->netdat->haz5[i] = 0;
+	// Specify graphs for display
+
+	//mainwin->diagbox->Write("GSwitch call\n");
+
+	if(gsmode == 1) 
+		for(i=0; i<gcount; i++) {
+			graphset = graphbase->GetSet(gcodes[i]);
+			gdex = graphset->GetPlot(i, gflags);
+			//if(diagbox) diagbox->textbox->AppendText(text.Format("gpos %d   gcode %s   set %s   plot %d   modesum %d   sdex %d\n", 
+			//	i, gcodes[i], graphset->tag, gdex, graphset->modesum, graphset->sdex));
+			gpos[i].Front((*graphbase)[gdex]);
+			gpos[i].sdex = graphset->sdex;
 		}
+}
 
-		magpop->popfreq = 0;
 
-		// Analyse and sum each neuron
-		for(i=0; i<numneurons; i++) {
-			mod->netneuron->neurocalc(&(neurons[i]));
-			magpop->popfreq += mod->netneuron->freq;
 
-			for(step=0; step<magpop->maxtime; step++) mod->netdat->srate1s[step] += mod->netneuron->srate1s[step];  // 1s bins
-			for(step=0; step<magpop->maxtime/10; step++) mod->netdat->srate10s[step] += mod->netneuron->srate10s[step];  // 10s bins
-			for(step=0; step<magpop->maxtime/30; step++) mod->netdat->srate30s[step] += mod->netneuron->srate30s[step];  // 30s bins
-			for(step=0; step<magpop->maxtime/300; step++) mod->netdat->srate300s[step] += mod->netneuron->srate300s[step];  // 300s bins
-			for(step=0; step<magpop->maxtime/600; step++) mod->netdat->srate600s[step] += mod->netneuron->srate600s[step];  // 600s bins
+void MagNetMod::GridOutput()
+{
+	int i, row, col;
+	int runtime, substeps, modsubsteps;
+	int samprate, sampstart, sampstop, sampcount;
+	wxString text;
 
-			for(step=0; step<1000000; step++) mod->netdat->srate1[step] += mod->netneuron->srate1[step];  // 1 ms bins
+	TextGrid* grid = gridbox->outputgrid;
+	grid->CopyUndo();
 
-			for(step=0; step<10000; step++) {
-				mod->netdat->hist1[step] += mod->netneuron->hist1[step];
-				mod->netdat->hist5[step] += mod->netneuron->hist5[step];
-				mod->netdat->haz1[step] += mod->netneuron->haz1[step];
-				mod->netdat->haz5[step] += mod->netneuron->haz5[step];
-			}
-		}
+	//ParamStore* samparams = mod->conbox->GetParams();
 
-		// Convert sums to means
-		for(step=0; step<magpop->maxtime; step++) mod->netdat->srate1s[step] = mod->netdat->srate1s[step] / numneurons;  // 1s bins
-		for(step=0; step<magpop->maxtime/10; step++) mod->netdat->srate10s[step] = mod->netdat->srate10s[step] / numneurons;  // 10s bins
-		for(step=0; step<magpop->maxtime/30; step++) mod->netdat->srate30s[step] = mod->netdat->srate30s[step] / numneurons;  // 30s bins
-		for(step=0; step<magpop->maxtime/300; step++) mod->netdat->srate300s[step] = mod->netdat->srate300s[step] / numneurons;  // 300s bins
-		for(step=0; step<magpop->maxtime/600; step++) mod->netdat->srate600s[step] = mod->netdat->srate600s[step] / numneurons;  // 600s bins
+	runtime = 1000;
+	substeps = 1;
+	modsubsteps = 8;
+	//samplerate = 5;
 
-		magpop->popfreq = magpop->popfreq / numneurons;
+	//sampstart = (*samparams)["sampstart"];
+	//sampstop = (*samparams)["sampstop"];
+	//samprate = (*samparams)["samprate"];
+
+	//sampcount = mod->ghdata->sampcount - 1;              // take off extra sample at time 0
+
+	//if(mod->mainwin->diagnostic) mod->diagbox->textbox->AppendText(text.Format("transfer start %d\n", sampstart));
+
+	//if (!mod->outbox->IsShown()) mod->outbox->Show(true);
+
+
+	samprate = 1;
+	sampcount = 100;
+	sampstart = 20;
+
+	col = 0;
+	grid->ClearCol(col);
+	grid->SetCellValue(0, col, "Sample Time (min)");
+	//for(i=0; i<=sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.0f", (double)i*samprate+sampstart));
+	for(i=0; i<=sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.0f", (double)i * samprate));
+
+	col = 1;
+	grid->ClearCol(col);
+	grid->SetCellValue(0, col, "Plasma");
+	//for(i=0; i<sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.2f", mod->ghdata->hs[i]));
+	for(i=0; i<=sampcount; i++) grid->SetCellValue(i+1, col, text.Format("%.2f", magpop->plasmaLong[i]));
+}
+
+
+void MagNetMod::DataOutput()
+{
+	int i, j;
+	int row, col;
+	int runtime, substeps, modsubsteps;
+	wxString text;
+	int bincount;
+
+	int binsize = 5;
+	int timerange = 1000;
+	int gridmax = 500;
+	int histcount;
+	
+
+	TextGrid *outgrid = gridbox->textgrid[1];
+	gridmax = outgrid->GetNumberRows();
+	outgrid->CopyUndo();
+
+	ParamStore *calcparams = neurobox->GetParams();
+	//viewcell[0].normscale = (*calcparams)["normscale"];
+	timerange = (*calcparams)["histrange"];
+	if(timerange < 0) timerange = 0;
+	histcount = timerange / binsize;
+	if(histcount > gridmax) histcount = gridmax;
+
+
+	// Cell name
+	outgrid->SetCell(0, 0, viewcell[0].name);
+
+	// Histogram and Hazard
+	outgrid->SetCell(3, 0, "Bin");
+	outgrid->SetCell(3, 1, "Hist 5ms");
+	outgrid->SetCell(3, 2, "Norm Hist 5ms");
+	outgrid->SetCell(3, 3, "Hazard 5ms");
+	for(i=0; i<histcount; i++) {
+		outgrid->SetCell(i+5, 0, text.Format("%d", i*5));
+		outgrid->SetCell(i+5, 1, text.Format("%.0f", viewcell[0].hist5[i]));
+		outgrid->SetCell(i+5, 2, text.Format("%.4f", viewcell[0].hist5norm[i]));
+		outgrid->SetCell(i+5, 3, text.Format("%.4f", viewcell[0].haz5[i]));
 	}
 
-	mod->DiagWrite(text.Format("\n%d neurons   pop freq %.4f\n", numneurons, magpop->popfreq));
-}
+	// Burst Data
+	outgrid->SetCell(3, 5, "Bursts");
+	outgrid->SetCell(3, 6, text.Format("%d", viewcell[0].burstdata->numbursts));
+	outgrid->SetCell(4, 5, "Mean Spikes");
+	outgrid->SetCell(4, 6, text.Format("%.2f", viewcell[0].burstdata->meancount));
+	outgrid->SetCell(5, 5, "Mean Length");
+	outgrid->SetCell(5, 6, text.Format("%.2f", viewcell[0].burstdata->meanlength));
+	outgrid->SetCell(6, 5, "Length SD");
+	outgrid->SetCell(6, 6, text.Format("%.2f", viewcell[0].burstdata->sdlength));
+	outgrid->SetCell(7, 5, "Mean Silence");
+	outgrid->SetCell(7, 6, text.Format("%.2f", viewcell[0].burstdata->meansilence));
+	outgrid->SetCell(8, 5, "Silence SD");
+	outgrid->SetCell(8, 6, text.Format("%.2f", viewcell[0].burstdata->sdsilence));
+	outgrid->SetCell(9, 5, "Activity Q");
+	outgrid->SetCell(9, 6, text.Format("%.3f", viewcell[0].burstdata->actQ));
 
 
-void MagNetMod::Export2file(int steps, wxString filename, datdouble vector2print)
-{
-	float tempvalue;
-	wxTextFile stfile; //Secretion rate file
-	wxString stfilename = "E:/Data/Test/Average";
-	stfilename = stfilename.Append(wxString::Format(wxT("%s"), filename));
-	stfilename = stfilename.Append(wxString::Format(wxT("%d"), numneurons));
-	stfilename = stfilename.Append("neurones.dat");
-	if (!stfile.Create(stfilename)) stfile.Open(stfilename);
-	stfile.Clear();
-	tempvalue = 0;
-	for (double step=0; step<steps; step++) 
-	{
-		tempvalue = (float)vector2print[step];// / (float)numneurons;  // averaging to a floating point number  
-		stfile.AddLine(wxString::Format(wxT("%.2f"), tempvalue ));
+	outgrid->SetCell(3, 8, "Rate 30s");
+	for(i=0; i<300; i++) {
+		outgrid->SetCell(i+5, 8, text.Format("%d", i*30));
+		outgrid->SetCell(i+5, 9, text.Format("%.0f", viewcell[0].srate30s[i]));
 	}
-	stfile.Write(); // necessary for saving changes! 
-	stfile.Close();  // Closing the file					
 }
-
-
-void MagNetMod::SecretionAnalysis()
-{
-	int i, datacount;
-	double mean, variance;
-
-	// secretion rate IoD - 1s bin
-	mean = 0;
-	variance = 0;
-	for(i=0; i<runtime; i++) mean = mean + mod->magpop->OxySecretionNet[i];	   // mean
-	mean = mean / runtime;
-	for(i=0; i<runtime; i++) variance += (mean - mod->magpop->OxySecretionNet[i]) * (mean - mod->magpop->OxySecretionNet[i]);	  // variance
-	variance = variance / runtime;
-	mod->magpop->secIoD = variance / mean;
-	mod->magpop->secmean = mean;
-
-	// secretion rate IoD - 4s bin
-	mean = 0;
-	variance = 0;
-	datacount = runtime / 4;
-	for(i=0; i<datacount; i++) mean = mean + magpop->NetSecretion4s[i];	   // mean
-	mean = mean / datacount;
-	for(i=0; i<datacount; i++) variance += (mean - magpop->NetSecretion4s[i]) * (mean - magpop->NetSecretion4s[i]);	  // variance
-	variance = variance / datacount;
-	magpop->secIoD_4s = variance / mean;
-	magpop->secmean_4s = mean;
-}
-
-

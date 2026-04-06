@@ -12,7 +12,7 @@
 #ifndef MAGNETDAT_H
 #define MAGNETDAT_H
 
-#include "hypomodel.h"
+#include "hypomain.h"
 
 
 // 'MagNeuron' single magnocellular neuron class derived from NeuroDat
@@ -165,7 +165,7 @@ public:
 	int datsample;
 	
 	SpikeDat *spikedat;
-	Model *mod;
+	Mod *mod;
 	DiagBox *diagbox;
 
 	datdouble secX;

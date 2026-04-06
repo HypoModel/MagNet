@@ -8,14 +8,14 @@
 *
 */
 
-#include "magnetmodel.h"
+#include "magnetmod.h"
 
 
-MagNetBox::MagNetBox(MagNetModel *magnetmodel, MainFrame *main, const wxString& title, const wxPoint& pos, const wxSize& size)
-	: ParamBox(magnetmodel, title, pos, size, "MagNet", 0, 1)
+MagNetBox::MagNetBox(MagNetMod *magnetmod, MainFrame *main, const wxString& title, const wxPoint& pos, const wxSize& size)
+	: ParamBox(magnetmod, title, pos, size, "MagNet", 0, 1)
 {
 	column = 0;
-	mod = magnetmodel;
+	mod = magnetmod;
 
 	InitMenu();
 
@@ -259,7 +259,7 @@ void MagNetBox::OnRun(wxCommandEvent& event)
 }
 
 
-MagSynthBox::MagSynthBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagSynthBox::MagSynthBox(MagNetMod *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(mod, title, pos, size, "MAGSYNTH")
 {
 	int labelwidth = 60;
@@ -324,7 +324,7 @@ MagSynthBox::MagSynthBox(MagNetModel *mod, const wxString& title, const wxPoint&
 }
 
 
-MagSpikeBox::MagSpikeBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagSpikeBox::MagSpikeBox(MagNetMod *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(mod, title, pos, size, "OXYNEURO")
 {
 	int labelwidth = 60;
@@ -474,7 +474,7 @@ void MagSpikeBox::VasoPanel()
 }*/
 
 
-MagDendBox::MagDendBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagDendBox::MagDendBox(MagNetMod *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(mod, title, pos, size, "OXYDEND")
 {
 	int labelwidth = 60;
@@ -502,7 +502,7 @@ MagDendBox::MagDendBox(MagNetModel *mod, const wxString& title, const wxPoint& p
 }
 
 
-MagSecBox::MagSecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
+MagSecBox::MagSecBox(MagNetMod *mod, const wxString& title, const wxPoint& pos, const wxSize& size)
 	: ParamBox(mod, title, pos, size, "OXYSEC")
 {
 	int labelwidth = 60;
@@ -579,12 +579,12 @@ MagSecBox::MagSecBox(MagNetModel *mod, const wxString& title, const wxPoint& pos
 
 
 // Box for showing the analysis of a particular neuron of the Network
-MagNeuroDataBox::MagNeuroDataBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size)
-	: ParamBox(model, title, pos, size, "OXYNEURODATA")
+MagNeuroDataBox::MagNeuroDataBox(MagNetMod *magnetmod, const wxString& title, const wxPoint& pos, const wxSize& size)
+	: ParamBox(magnetmod, title, pos, size, "OXYNEURODATA")
 {
 	int datwidth, labelwidth;
 	column = 0;
-	mod = model;
+	mod = magnetmod;
 
 	neurodex = 0;  
 	neurocount = 0;
@@ -741,7 +741,7 @@ void MagNeuroDataBox::OnEnter(wxCommandEvent& event)
 
 // MagNetGridBox - derived version of GridBox class
 
-MagNetGridBox::MagNetGridBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size, int rows, int cols)
+MagNetGridBox::MagNetGridBox(MagNetMod *model, const wxString& title, const wxPoint& pos, const wxSize& size, int rows, int cols)
 	: GridBox(model, title, pos, size, rows, cols, true, true)
 {
 	//GridDefault();
@@ -758,14 +758,14 @@ void MagNetGridBox::OnPlot(wxCommandEvent& event)
 
 
 
-MagNetProtoBox::MagNetProtoBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size)
-	: ParamBox(model, title, pos, size, "PROTO", 1, 1)
+MagNetProtoBox::MagNetProtoBox(MagNetMod *magnetmod, const wxString& title, const wxPoint& pos, const wxSize& size)
+	: ParamBox(mod, title, pos, size, "PROTO", 1, 1)
 {
 	int pnum, inpnum, rampnum;
 	int pulsenum0, pulsenum1, rampnum0, rampnum1;
 	int numwidth;
 	boxtag = "PROTO";
-	mod = model;
+	mod = magnetmod;
 	wxString tag;
 
 	long notestyle = wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS;
@@ -1031,12 +1031,12 @@ void MagNetProtoBox::OnRun(wxCommandEvent& event)
 } 
 
 // Control box for testing signal processing
-MagSignalBox::MagSignalBox(MagNetModel *vmnmodel, const wxString& title, const wxPoint& pos, const wxSize& size)
-	: ParamBox(vmnmodel, title, pos, size, "Signal")
+MagSignalBox::MagSignalBox(MagNetMod *magnetmod, const wxString& title, const wxPoint& pos, const wxSize& size)
+	: ParamBox(magnetmod, title, pos, size, "Signal")
 {
 	column = 0;
 	boxtag = "Signal";
-	mod = vmnmodel;
+	mod = magnetmod;
 
 	InitMenu();
 
@@ -1102,13 +1102,13 @@ void MagSignalBox::OnRun(wxCommandEvent& event)
 
 
 
-MagGenBox::MagGenBox(MagNetModel *model, const wxString& title, const wxPoint& pos, const wxSize& size)
-	: ParamBox(model, title, pos, size)
+MagGenBox::MagGenBox(MagNetMod *magnetmod, const wxString& title, const wxPoint& pos, const wxSize& size)
+	: ParamBox(magnetmod, title, pos, size)
 {
 	labelwidth = 50;
 	int sdwidth = 30;
 	boxtag = "MAGNOGEN";
-	mod = model;
+	mod = magnetmod;
 
 	//SetMenuBar(menuBar);
 

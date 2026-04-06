@@ -12,9 +12,9 @@
 */
 
 
-#include "magnetmodel.h"
-#include <random>
+#include "magnetmod.h"
 #include <math.h>
+#include "hyporand.h"
 
 
 
@@ -29,13 +29,13 @@ inline double vox_tanh( const double x )
 }
 
 
-MagNeuroMod::MagNeuroMod(int index, MagNeuron *oxyneuron, MagNetMod *oxynetmod)
+MagNeuroMod::MagNeuroMod(int index, MagNeuron *magneuron, MagNetModel *magnetmodel)
 	: wxThread(wxTHREAD_JOINABLE)
 {
 	wxString text;
 
-	neuron = oxyneuron; // individual neuron pointer
-	netmod = oxynetmod;  
+	neuron = magneuron; // individual neuron pointer
+	netmod = magnetmodel;
 
 	mod = netmod->mod;
 	magpop = mod->magpop;
@@ -61,13 +61,13 @@ MagNeuroMod::MagNeuroMod(int index, MagNeuron *oxyneuron, MagNetMod *oxynetmod)
 	ParamStore *secflags = netmod->secbox->modflags;
 	ParamStore *netparams = netbox->GetParams();
 
-	modsteps = oxynetmod->runtime * 1000;
+	modsteps = magnetmodel->runtime * 1000;
 	hstep = (*spikeparams)["hstep"];
 	shstep = hstep / 1000;
 	syn_hstep = shstep / 3600;
-	netrate = oxynetmod->netrate;
-	osmorate = oxynetmod->osmorate;
-	buffrate = oxynetmod->buffrate;
+	netrate = magnetmodel->netrate;
+	osmorate = magnetmodel->osmorate;
+	buffrate = magnetmodel->buffrate;
 
 	modseed = (*netparams)["modseed"];
 	disprate = (*netparams)["disprate"];
@@ -243,23 +243,6 @@ void *MagNeuroMod::Entry()
 }
 
 
-// fast random code from The Cherno, https://www.youtube.com/watch?v=5_RAHZQCPjE
-
-static uint32_t PCG_Hash(uint32_t input)
-{
-	uint32_t state = input * 747796405u + 2891336453u;
-	uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-	return (word >> 22u) ^ word;
-}
-
-
-static double RandomFloat(uint32_t& seed)
-{
-	seed = PCG_Hash(seed);
-	return (double)seed / (double)(std::numeric_limits<uint32_t>::max());
-}
-
-
 // Neural model code including integrated spiking, secretion, and synthesis models
 
 void MagNeuroMod::neuromod() 
@@ -418,13 +401,15 @@ void MagNeuroMod::neuromod()
 
 
 	// initialise random number generator
-	seed = modseed + neurodex;
+	//seed = modseed + neurodex;
 	//seed = 1568637350;
 	//para_init_mrand(neurodex, seed);
 	//sfmt_init_gen_rand(&sfmt, seed);
 
-	thread_local std::mt19937 randgen(seed);
-	std::uniform_real_distribution<double> unif01(0, 1);
+	//thread_local std::mt19937 randgen(seed);
+	//std::uniform_real_distribution<double> unif01(0, 1);
+    
+    rng.seed(static_cast<uint64_t>(modseed), static_cast<uint64_t>(neurodex));
 
 
 
@@ -589,8 +574,8 @@ void MagNeuroMod::neuromod()
 
 
 			// Signal Input     
-			if (noiamp) noisig = noisig + (noimean - noisig) / noitau + noiamp * sqrt(hstep) * gaussian(0, 1);
-			if (signalmode) {
+			if(noiamp) noisig = noisig + (noimean - noisig) / noitau + noiamp * sqrt(hstep) * rng.normal();
+			if(signalmode) {
 				synsig = noisig;
 				epsprate1 = synsig / 1000;
 				ipsprate1 = epsprate1 * sigIratio;
@@ -648,12 +633,12 @@ void MagNeuroMod::neuromod()
 				totalepsprate = epsprate * synvar;
 				totalipsprate = epsprate * pspRatio * synvar;
 
-				if (totalepsprate > 0) {
+				if(totalepsprate > 0) {
 					while (epspt < hstep) {
 						//erand = para_mrand01(neurodex);
 						//erand = sfmt_genrand_real2(&sfmt);
 						//erand = unif01(randgen);
-						erand = RandomFloat(seed);
+                        erand = rng.uniform_open01();
 						nepsp++;
 						//epspt = -log(1 - para_mrand01(neurodex)) / totalepsprate + epspt;
 						epspt = -log(1 - erand) / totalepsprate + epspt;
@@ -662,17 +647,17 @@ void MagNeuroMod::neuromod()
 					epspt = epspt - hstep;
 				}
 
-				if (!flagError && epspt > 1000) {
+				if(!flagError && epspt > 1000) {
 					mod->diagbox->Write(text.Format("epspt %.10f  erand %.10f\n", epspt, erand));
 					flagError = true;
 				}
 
-				if (totalipsprate > 0) {
+				if(totalipsprate > 0) {
 					while (ipspt < hstep) {
 						//irand = para_mrand01(neurodex);
 						//irand = sfmt_genrand_real2(&sfmt);
 						//irand = unif01(randgen);
-						irand = RandomFloat(seed);
+                        irand = rng.uniform_open01();
 						nipsp++;
 						//ipspt = -log(1 - para_mrand01(neurodex)) / totalipsprate + ipspt;
 						ipspt = -log(1 - irand) / totalipsprate + ipspt;
@@ -682,9 +667,9 @@ void MagNeuroMod::neuromod()
 				}
 
 
-				if (epsprate1 > 0) {
+				if(epsprate1 > 0) {
 					while (epspt1 < hstep) {
-						erand = unif01(randgen);
+                        erand = rng.uniform_open01();
 						//erand = para_mrand01(neurodex);
 						nepsp1++;
 						epspt1 = -log(1 - erand) / epsprate1 + epspt1;
@@ -692,9 +677,9 @@ void MagNeuroMod::neuromod()
 					epspt1 = epspt1 - hstep;
 				}
 
-				if (ipsprate1 > 0) {
+				if(ipsprate1 > 0) {
 					while (ipspt1 < hstep) {
-						erand = unif01(randgen);
+						irand = rng.uniform_open01();
 						//irand = para_mrand01(neurodex);
 						nipsp1++;
 						ipspt1 = -log(1 - irand) / ipsprate1 + ipspt1;
@@ -702,9 +687,9 @@ void MagNeuroMod::neuromod()
 					ipspt1 = ipspt1 - hstep;
 				}
 
-				if (epsprate2 > 0) {
+				if(epsprate2 > 0) {
 					while (epspt2 < hstep) {
-						erand = unif01(randgen);
+						erand = rng.uniform_open01();
 						//erand = para_mrand01(neurodex);
 						//erand = sfmt_genrand_real2(&sfmt);
 						nepsp2++;
@@ -719,7 +704,7 @@ void MagNeuroMod::neuromod()
 			inputPSP1 = nepsp1 * epspmag - nipsp1 * ipspmag;
 
 			// Input dynamics
-			if (epspmag2) {
+			if(epspmag2) {
 				if (epspsynchflag) nepsp2 = nepsp;   // synchronous AMPA and NMDA EPSPs
 				inputPSP2 = inputPSP2 - (inputPSP2 * tauPSP2) * hstep + nepsp2 * epspmag2;
 			}
