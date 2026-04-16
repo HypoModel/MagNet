@@ -407,9 +407,9 @@ void MagSpikeBox::OxyPanel()
 	paramset.AddCon("pspmag", "PSP mag", 2, 0.1, 4);  // 1
 	paramset.AddCon("psprate", "PSP rate", 190, 1, 2);
 	paramset.AddCon("iratio", "Iratio", 0.5, 0.1, 5);
-	paramset.AddCon("halflifeMem", "Mem HL", 3.5, 0.1, 4);  // |Like in the Endocrinology paper
+	paramset.AddCon("halflifeMem", "Mem HL", 3.5, 0.1, 4); // Like in the Endocrinology paper
 	paramset.AddCon("kHAP", "HAP k", 30, 1, 3);
-	paramset.AddCon("halflifeHAP", "HAP HL", 7.5, 1, 2); // |Like in the Endocrinology paper
+	paramset.AddCon("halflifeHAP", "HAP HL", 7.5, 1, 2); // Like in the Endocrinology paper
 	paramset.AddCon("kDAP", "DAP k", 0, 1, 3);
 	paramset.AddCon("halflifeDAP", "DAP HL", 150, 1, 2);
 	paramset.AddCon("kAHP", "AHP k", 1, 0.1, 3);
